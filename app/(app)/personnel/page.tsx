@@ -2,11 +2,40 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
-import { getPersonnel } from "@/services/personnelService";
+import {
+  getPersonnel,
+  deletePersonnel,
+} from "@/services/personnelService";
 
 export default function PersonnelPage() {
   const [personnel, setPersonnel] = useState<any[]>([]);
   const [search, setSearch] = useState("");
+
+  async function handleDelete(id: string) {
+
+  const confirmed = window.confirm(
+    "Are you sure you want to delete this personnel?"
+  );
+
+  if (!confirmed) return;
+
+  try {
+
+    await deletePersonnel(id);
+
+    const data = await getPersonnel();
+    setPersonnel(data);
+
+    alert("Personnel deleted successfully.");
+
+  } catch (error) {
+
+    console.error(error);
+
+    alert("Unable to delete personnel.");
+
+  }
+}
 
   useEffect(() => {
     async function loadPersonnel() {
@@ -152,9 +181,12 @@ export default function PersonnelPage() {
   Edit
 </Link>
 
-                      <button className="rounded bg-red-600 px-3 py-1 text-white hover:bg-red-700">
-                        Delete
-                      </button>
+                      <button
+  onClick={() => handleDelete(person.id)}
+  className="rounded bg-red-600 px-3 py-1 text-white hover:bg-red-700"
+>
+  Delete
+</button>
 
                     </div>
 
