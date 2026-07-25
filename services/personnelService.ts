@@ -43,3 +43,20 @@ export async function getPersonnel() {
 
   return data;
 }
+export async function getPersonnelById(id: string) {
+  const { data, error } = await supabase
+    .from("personnel")
+    .select(`
+      *,
+      ranks(rank_name),
+      companies(name),
+      appointments(appointment_name),
+      corps(name)
+    `)
+    .eq("id", id)
+    .single();
+
+  if (error) throw error;
+
+  return data;
+}
