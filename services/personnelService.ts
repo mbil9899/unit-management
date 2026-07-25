@@ -60,3 +60,36 @@ export async function getPersonnelById(id: string) {
 
   return data;
 }
+export async function updatePersonnel(
+  id: string,
+  personnel: any
+) {
+  const payload = {
+    ...personnel,
+    rank_id: personnel.rank_id ? Number(personnel.rank_id) : null,
+    company_id: personnel.company_id ? Number(personnel.company_id) : null,
+    appointment_id: personnel.appointment_id
+      ? Number(personnel.appointment_id)
+      : null,
+    corps_id: personnel.corps_id ? Number(personnel.corps_id) : null,
+  };
+
+  const { data, error } = await supabase
+    .from("personnel")
+    .update(payload)
+    .eq("id", id)
+    .select();
+
+  if (error) throw error;
+
+  return data;
+}
+
+export async function deletePersonnel(id: string) {
+  const { error } = await supabase
+    .from("personnel")
+    .delete()
+    .eq("id", id);
+
+  if (error) throw error;
+}

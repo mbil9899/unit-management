@@ -145,9 +145,12 @@ export default function PersonnelPage() {
   View
 </Link>
 
-                      <button className="rounded bg-yellow-500 px-3 py-1 text-white hover:bg-yellow-600">
-                        Edit
-                      </button>
+                      <Link
+  href={`/personnel/${person.id}/edit`}
+  className="rounded bg-yellow-500 px-3 py-1 text-white hover:bg-yellow-600"
+>
+  Edit
+</Link>
 
                       <button className="rounded bg-red-600 px-3 py-1 text-white hover:bg-red-700">
                         Delete
