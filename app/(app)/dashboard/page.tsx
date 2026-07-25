@@ -1,9 +1,6 @@
-import { supabase } from "@/lib/supabase";
-
+import { getCompanies } from "@/services/companyService";
 export default async function DashboardPage() {
-  const { data, error } = await supabase
-    .from("companies")
-    .select("*");
+ const data = await getCompanies();
 
   console.log(data);
 

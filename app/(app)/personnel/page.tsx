@@ -1,69 +1,171 @@
-import Button from "@/components/ui/Button";
-import PageHeader from "@/components/ui/PageHeader";
-import SearchBar from "@/components/ui/SearchBar";
-import Table from "@/components/ui/Table";
-import Badge from "@/components/ui/Badge";
+"use client";
+
+import Link from "next/link";
+import { useEffect, useState } from "react";
+import { getPersonnel } from "@/services/personnelService";
 
 export default function PersonnelPage() {
-  return (
-    <div>
-      <PageHeader
-        title="Personnel Management"
-        subtitle="Manage all personnel records"
-        actions={
-          <Button>
-            + Add Personnel
-          </Button>
-        }
-      />
+  const [personnel, setPersonnel] = useState<any[]>([]);
+  const [search, setSearch] = useState("");
 
-      <div className="mb-6">
-        <SearchBar />
+  useEffect(() => {
+    async function loadPersonnel() {
+      const data = await getPersonnel();
+      setPersonnel(data);
+    }
+
+    loadPersonnel();
+  }, []);
+
+  const filteredPersonnel = personnel.filter((person) => {
+    const armyNo = person.army_no?.toLowerCase() || "";
+    const fullName = person.full_name?.toLowerCase() || "";
+
+    return (
+      armyNo.includes(search.toLowerCase()) ||
+      fullName.includes(search.toLowerCase())
+    );
+  });
+
+  return (
+    <div className="p-6">
+
+      {/* Header */}
+
+      <div className="mb-6 flex items-center justify-between">
+
+        <div>
+
+          <h1 className="text-3xl font-bold text-gray-900">
+            Personnel Management
+          </h1>
+
+          <p className="text-gray-500">
+            View and manage all unit personnel.
+          </p>
+
+        </div>
+
+        <Link
+          href="/personnel/add"
+          className="rounded-lg bg-emerald-700 px-5 py-2 text-white hover:bg-emerald-800"
+        >
+          + Add Personnel
+        </Link>
+
       </div>
 
-      <Table
-        headers={[
-          "Army No",
-          "Rank",
-          "Name",
-          "Company",
-          "Appointment",
-          "Status",
-          "Actions",
-        ]}
-      >
-        <tr className="border-t">
-          <td className="px-4 py-3">BA-1234</td>
-          <td className="px-4 py-3">Capt</td>
-          <td className="px-4 py-3">Rahim</td>
-          <td className="px-4 py-3">Alpha</td>
-          <td className="px-4 py-3">OC</td>
-          <td>
-    <Badge status="Active" />
-</td>
-          <td className="px-4 py-3">
-            <Button variant="secondary">
-              Edit
-            </Button>
-          </td>
-        </tr>
+      {/* Search */}
 
-        <tr className="border-t">
-          <td className="px-4 py-3">BA-1235</td>
-          <td className="px-4 py-3">Lt</td>
-          <td className="px-4 py-3">Karim</td>
-          <td className="px-4 py-3">Bravo</td>
-          <td className="px-4 py-3">2IC</td>
-          <td>
-    <Badge status="Leave" />
-</td>
-          <td className="px-4 py-3">
-            <Button variant="secondary">
-              Edit
-            </Button>
-          </td>
-        </tr>
-      </Table>
+      <div className="mb-6">
+
+        <input
+          type="text"
+          placeholder="Search by Army No or Name..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="w-full rounded-lg border border-gray-300 p-3 text-gray-900"
+        />
+
+      </div>
+
+      {/* Table */}
+
+      <div className="overflow-hidden rounded-lg border bg-white shadow">
+
+        <table className="w-full">
+
+          <thead className="bg-gray-100">
+
+            <tr>
+
+              <th className="border-b p-3 text-left">Army No</th>
+              <th className="border-b p-3 text-left">Rank</th>
+              <th className="border-b p-3 text-left">Name</th>
+              <th className="border-b p-3 text-left">Company</th>
+              <th className="border-b p-3 text-left">Appointment</th>
+              <th className="border-b p-3 text-center">Actions</th>
+
+            </tr>
+
+          </thead>
+
+          <tbody>
+
+            {filteredPersonnel.length === 0 ? (
+
+              <tr>
+
+                <td
+                  colSpan={6}
+                  className="p-6 text-center text-gray-500"
+                >
+                  No personnel found.
+                </td>
+
+              </tr>
+
+            ) : (
+
+              filteredPersonnel.map((person) => (
+
+                <tr
+                  key={person.id}
+                  className="hover:bg-gray-50"
+                >
+
+                  <td className="border-b p-3">
+                    {person.army_no}
+                  </td>
+
+                  <td className="border-b p-3">
+                    {person.ranks?.rank_name}
+                  </td>
+
+                  <td className="border-b p-3">
+                    {person.full_name}
+                  </td>
+
+                  <td className="border-b p-3">
+                    {person.companies?.name}
+                  </td>
+
+                  <td className="border-b p-3">
+                    {person.appointments?.appointment_name}
+                  </td>
+
+                  <td className="border-b p-3">
+
+                    <div className="flex justify-center gap-2">
+
+                      <button className="rounded bg-blue-600 px-3 py-1 text-white hover:bg-blue-700">
+                        View
+                      </button>
+
+                      <button className="rounded bg-yellow-500 px-3 py-1 text-white hover:bg-yellow-600">
+                        Edit
+                      </button>
+
+                      <button className="rounded bg-red-600 px-3 py-1 text-white hover:bg-red-700">
+                        Delete
+                      </button>
+
+                    </div>
+
+                  </td>
+
+                </tr>
+
+              ))
+
+            )}
+
+          </tbody>
+
+        </table>
+
+      </div>
+
     </div>
   );
 }
