@@ -1,28 +1,5 @@
-import Navbar from "@/components/layout/Navbar";
-import Sidebar from "@/components/layout/Sidebar";
+import { redirect } from "next/navigation";
 
-export default function Home() {
-  return (
-    <div className="h-screen flex flex-col">
-
-      <Navbar />
-
-      <div className="flex flex-1">
-
-        <Sidebar />
-
-        <main className="flex-1 p-10">
-          <h1 className="text-4xl font-bold">
-            Dashboard
-          </h1>
-
-          <p className="mt-4">
-            Welcome to the Unit Management System.
-          </p>
-        </main>
-
-      </div>
-
-    </div>
-  );
+export default function HomePage() {
+  redirect("/login");
 }
