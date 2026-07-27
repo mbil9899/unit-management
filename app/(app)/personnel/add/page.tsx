@@ -6,6 +6,8 @@ import { uploadPersonnelPhoto } from "@/services/personnelService";
 
 import { createPersonnel } from "@/services/personnelService";
 
+import { getPlatoonsByCompany } from "@/services/lookupService";
+
 import {
   getRanks,
   getCompanies,
@@ -23,7 +25,6 @@ export default function AddPersonnelPage() {
   const [corps, setCorps] = useState<any[]>([]);
   const [photo, setPhoto] = useState<File | null>(null);
   const [platoons, setPlatoons] = useState<any[]>([]);
-  
 
   const [form, setForm] = useState({
     army_no: "",
@@ -62,7 +63,6 @@ export default function AddPersonnelPage() {
 async function load() {
   setRanks(await getRanks());
   setCompanies(await getCompanies());
-  setPlatoons(await getPlatoonsByCompany(companyId));
   setAppointments(await getAppointments());
   setCorps(await getCorps());
 }
@@ -112,6 +112,22 @@ async function handleSubmit(e: React.FormEvent) {
     alert(err.message || JSON.stringify(err));
   }
 }
+async function handleCompanyChange(companyId: string) {
+  console.log("Company Selected:", companyId);
+
+  setForm({
+    ...form,
+    company_id: companyId,
+    platoon_id: "",
+  });
+
+  const data = await getPlatoonsByCompany(Number(companyId));
+
+  console.log("Platoons:", data);
+
+  setPlatoons(data);
+}
+
 
 
   return (
@@ -189,11 +205,8 @@ async function handleSubmit(e: React.FormEvent) {
             className="mt-1 w-full rounded border p-2"
             value={form.company_id}
             onChange={(e)=>
-              setForm({
-                ...form,
-                company_id:e.target.value
-              })
-            }
+    handleCompanyChange(e.target.value)
+}
           >
             <option value="">Select Company</option>
 
@@ -212,26 +225,32 @@ async function handleSubmit(e: React.FormEvent) {
 <div>
   <label>Platoon</label>
 
-  <select
-    className="mt-1 w-full rounded border p-2"
-    value={form.platoon_id}
-    onChange={(e) =>
-      setForm({
-        ...form,
-        platoon_id: e.target.value,
-      })
-    }
-  >
-    <option value="">Select Platoon</option>
+<select
+  className="mt-1 w-full rounded border p-2 bg-white text-black"
+  value={form.platoon_id}
+  onChange={(e)=>
+    setForm({
+      ...form,
+      platoon_id: e.target.value,
+    })
+  }
+>
+    <option value="" className="text-black">
+  Select Platoon
+</option>
 
-    {platoons.map((p) => (
-      <option
-        key={p.id}
-        value={p.id}
-      >
-        {p.platoon_name}
-      </option>
-    ))}
+{platoons.map((p) => (
+<option
+    key={p.id}
+    value={p.id}
+    style={{
+        color: "black",
+        backgroundColor: "white",
+    }}
+>
+    {p.platoon_name}
+</option>
+))}
   </select>
 </div>
 
