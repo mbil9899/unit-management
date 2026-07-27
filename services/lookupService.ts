@@ -43,3 +43,26 @@ export async function getCorps() {
 
   return data;
 }
+
+export async function getPlatoons() {
+  const { data, error } = await supabase
+    .from("platoons")
+    .select("*")
+    .order("id");
+
+  if (error) throw error;
+
+  return data;
+}
+
+export async function getPlatoonsByCompany(companyId: number) {
+  const { data, error } = await supabase
+    .from("platoons")
+    .select("*")
+    .eq("company_id", companyId)
+    .order("id");
+
+  if (error) throw error;
+
+  return data;
+}

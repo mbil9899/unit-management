@@ -2,9 +2,16 @@
 
 import { useEffect, useState } from "react";
 import { getUsers } from "@/services/userService";
+import { UserProfile } from "@/types/user";
+import Link from "next/link";
+import RoleGuard from "@/components/RoleGuard";
+
+import {
+  canManageUsers,
+} from "@/services/permissionService";
 
 export default function UsersPage() {
-  const [users, setUsers] = useState<any[]>([]);
+  const [users, setUsers] = useState<UserProfile[]>([]);
   const [search, setSearch] = useState("");
 
   useEffect(() => {
@@ -21,6 +28,9 @@ export default function UsersPage() {
   );
 
   return (
+<RoleGuard allow={canManageUsers}>
+
+
     <div className="p-6">
 
       <div className="flex justify-between items-center mb-6">
@@ -35,9 +45,12 @@ export default function UsersPage() {
           </p>
         </div>
 
-        <button className="bg-emerald-700 text-white px-5 py-2 rounded">
-          + Add User
-        </button>
+        <Link
+  href="/users/add"
+  className="rounded bg-emerald-700 px-5 py-2 text-white"
+>
+  + Add User
+</Link>
 
       </div>
 
@@ -66,35 +79,58 @@ export default function UsersPage() {
 
           <tbody>
 
-            {filtered.map((user) => (
+  {filtered.length === 0 ? (
 
-              <tr
-                key={user.id}
-                className="border-t hover:bg-gray-50"
-              >
+    <tr>
 
-                <td className="p-3">
-                  {user.full_name}
-                </td>
+      <td
+        colSpan={3}
+        className="p-8 text-center text-gray-500"
+      >
+        No users found.
+      </td>
 
-                <td className="p-3">
-                  {user.role}
-                </td>
+    </tr>
 
-                <td className="p-3">
-                  {user.companies?.name || "-"}
-                </td>
+  ) : (
 
-              </tr>
+    filtered.map((user) => (
 
-            ))}
+      <tr
+        key={user.id}
+        className="border-t hover:bg-gray-50"
+      >
 
-          </tbody>
+        <td className="p-3">
+          <Link
+            href={`/users/${user.id}`}
+            className="text-blue-700 hover:underline"
+          >
+            {user.full_name}
+          </Link>
+        </td>
+
+        <td className="p-3">
+          {user.role}
+        </td>
+
+        <td className="p-3">
+          {user.companies?.name ?? "-"}
+        </td>
+
+      </tr>
+
+    ))
+
+  )}
+
+</tbody>
 
         </table>
 
       </div>
 
     </div>
-  );
+  </RoleGuard>
+);
 }

@@ -33,6 +33,11 @@ Dashboard
           Reports
         </Link>
 
+                <Link href="/users" className="block hover:text-green-400">
+        <FileText size={20} />
+          Users
+        </Link>
+
         <Link href="/settings" className="block hover:text-green-400">
         <Settings size={20} />
           Settings

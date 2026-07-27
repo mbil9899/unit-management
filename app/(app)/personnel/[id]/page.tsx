@@ -12,6 +12,8 @@ export default function PersonnelDetailsPage() {
   useEffect(() => {
     async function load() {
       const data = await getPersonnelById(id as string);
+      console.log(data);
+console.log(data.photo_url);
       setPerson(data);
     }
 
@@ -50,9 +52,19 @@ export default function PersonnelDetailsPage() {
 
           <div className="flex justify-center">
 
-            <div className="flex h-52 w-44 items-center justify-center rounded border bg-gray-100">
-              Photo
-            </div>
+<div className="flex justify-center">
+  {person.photo_url ? (
+    <img
+      src={person.photo_url}
+      alt={person.full_name}
+      className="h-52 w-44 rounded border object-cover"
+    />
+  ) : (
+    <div className="flex h-52 w-44 items-center justify-center rounded border bg-gray-100">
+      No Photo
+    </div>
+  )}
+</div>
 
           </div>
 
@@ -79,7 +91,10 @@ export default function PersonnelDetailsPage() {
               <Info label="Company" value={person.companies?.name} />
 
               <Info label="Appointment" value={person.appointments?.appointment_name} />
-              <Info label="Corps" value={person.corps?.name} />
+              <Info
+  label="Corps"
+  value={person.corps?.corps_name}
+/>
 
               <Info label="IPFT" value={person.ipft} />
               <Info label="RET" value={person.ret} />

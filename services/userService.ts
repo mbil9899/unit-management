@@ -17,3 +17,21 @@ export async function getUsers() {
 
   return data;
 }
+
+export async function createUser(user: any) {
+  const response = await fetch("/api/users/create", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(user),
+  });
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    throw new Error(result.error);
+  }
+
+  return result;
+}

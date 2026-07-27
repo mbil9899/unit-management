@@ -1,5 +1,6 @@
 "use client";
 
+import { Personnel } from "@/types/personnel";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import {
@@ -8,7 +9,7 @@ import {
 } from "@/services/personnelService";
 
 export default function PersonnelPage() {
-  const [personnel, setPersonnel] = useState<any[]>([]);
+  const [personnel, setPersonnel] = useState<Personnel[]>([]);
   const [search, setSearch] = useState("");
 
   async function handleDelete(id: string) {
