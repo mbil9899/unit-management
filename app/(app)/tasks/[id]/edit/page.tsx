@@ -6,8 +6,6 @@ import { useRouter } from "next/navigation";
 import {
   getTaskById,
   updateTask,
-  getCompanies,
-  getPersonnelByCompany,
   getTaskCategories,
 } from "@/services/taskService";
 
@@ -22,23 +20,56 @@ export default function EditTaskPage({
   const [loading, setLoading] = useState(true);
 
   const [categories, setCategories] = useState<any[]>([]);
-  const [companies, setCompanies] = useState<any[]>([]);
-  const [personnel, setPersonnel] = useState<any[]>([]);
+  const [allPersonnel, setAllPersonnel] = useState<any[]>([]);
+const [filteredPersonnel, setFilteredPersonnel] = useState<any[]>([]);
+const [search, setSearch] = useState("");
 
-  const [form, setForm] = useState<any>({
-    title: "",
-    description: "",
-    category_id: "",
-    company_id: "",
-    assigned_to: "",
-    assigned_by: "",
-    status: "Pending",
-    start_date: "",
-    due_date: "",
-    completion_date: "",
-    evaluation: "",
-    remarks: "",
-  });
+  const [form, setForm] = useState({
+  title: "",
+  description: "",
+
+  category_id: "",
+
+  assigned_to: "",
+  assigned_by: "",
+
+  priority: "Routine",
+
+  status: "Pending",
+
+  due_date: "",
+
+  notes: "",
+
+  attachment_url: "",
+});
+
+
+
+useEffect(() => {
+
+    if(search===""){
+        setFilteredPersonnel(allPersonnel);
+        return;
+    }
+
+    const value=search.toLowerCase();
+
+    setFilteredPersonnel(
+        allPersonnel.filter(
+            p=>
+
+            p.full_name.toLowerCase().includes(value) ||
+
+            p.army_no.toLowerCase().includes(value)
+        )
+    );
+
+},[search,allPersonnel]);
+
+
+
+
 
   useEffect(() => {
     async function load() {
@@ -46,16 +77,17 @@ export default function EditTaskPage({
       console.log(task);
 
       const categoryData = await getTaskCategories();
-      const companyData = await getCompanies();
-      console.log("Companies:", companyData);
+      const categoryData = await getTaskCategories();
 
-      setCategories(categoryData);
-      setCompanies(companyData);
+setCategories(categoryData);
 
-      if (task.company_id) {
-        const p = await getPersonnelByCompany(task.company_id);
-        setPersonnel(p);
-      }
+const people = await getAssignablePersonnel();
+
+setAllPersonnel(people);
+setFilteredPersonnel(people);
+
+
+
 
       setForm({
         title: task.title ?? "",
@@ -78,20 +110,6 @@ export default function EditTaskPage({
     load();
   }, [id]);
 
-  async function handleCompanyChange(companyId: string) {
-    setForm({
-      ...form,
-      company_id: companyId,
-      assigned_to: "",
-    });
-
-    if (companyId) {
-      const data = await getPersonnelByCompany(Number(companyId));
-      setPersonnel(data);
-    } else {
-      setPersonnel([]);
-    }
-  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();

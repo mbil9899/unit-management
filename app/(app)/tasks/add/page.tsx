@@ -19,6 +19,9 @@ export default function AddTaskPage() {
   const [companies, setCompanies] = useState<any[]>([]);
   const [personnel, setPersonnel] = useState<any[]>([]);
   const [platoons, setPlatoons] = useState<any[]>([]);
+  const [search, setSearch] = useState("");
+
+const [filteredPersonnel, setFilteredPersonnel] = useState<any[]>([]);
 
 const [form, setForm] = useState({
   title: "",
@@ -32,19 +35,16 @@ const [form, setForm] = useState({
 
   company_id: "",
 
-  status: "Pending",
+  platoon_id: "",
 
-  start_date: "",
+  priority: "Routine",
+
+  status: "Pending",
 
   due_date: "",
 
-  completion_date: "",
-
-  evaluation: "",
-
-  remarks: "",
+  notes: "",
 });
-
 useEffect(() => {
   async function load() {
     setCategories(await getTaskCategories());
@@ -54,6 +54,24 @@ useEffect(() => {
   load();
 }, []);
 
+
+
+useEffect(() => {
+  if (!search) {
+    setFilteredPersonnel(personnel);
+    return;
+  }
+
+  const value = search.toLowerCase();
+
+  setFilteredPersonnel(
+    personnel.filter(
+      (p) =>
+        p.full_name.toLowerCase().includes(value) ||
+        p.army_no.toLowerCase().includes(value)
+    )
+  );
+}, [search, personnel]);
 
 
 async function handleCompanyChange(companyId: string) {
@@ -75,6 +93,7 @@ async function handleCompanyChange(companyId: string) {
 
   const personnelData = await getPersonnelByCompany(Number(companyId));
   setPersonnel(personnelData);
+setFilteredPersonnel(personnelData);
 }
 
 
@@ -84,6 +103,7 @@ async function handleCompanyChange(companyId: string) {
 try {
   const payload = {
   title: form.title,
+
   description: form.description || null,
 
   category_id: form.category_id
@@ -94,21 +114,21 @@ try {
     ? Number(form.company_id)
     : null,
 
+  platoon_id: form.platoon_id
+    ? Number(form.platoon_id)
+    : null,
+
   assigned_to: form.assigned_to || null,
 
-  assigned_by: null, // Login system not implemented yet
+  assigned_by: null,
+
+  priority: form.priority,
 
   status: form.status,
 
-  start_date: form.start_date || null,
-
   due_date: form.due_date || null,
 
-  completion_date: form.completion_date || null,
-
-  evaluation: form.evaluation || null,
-
-  remarks: form.remarks || null,
+  notes: form.notes || null,
 };
 
 console.log(payload);
@@ -198,37 +218,90 @@ console.log(payload);
 
         </select>
 
-        <select
-  className="w-full rounded border p-2"
-  value={form.assigned_to ?? ""}
-  onChange={(e) =>
-    setForm({
-      ...form,
-      assigned_to: e.target.value || null,
-    })
-  }
->
-          <option value="">Assign Personnel</option>
+        <div>
 
-          {personnel.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.army_no} - {p.full_name}
-            </option>
-          ))}
 
-        </select>
+<div>
+  <label>Priority</label>
 
-        <input
-          type="date"
-          className="w-full rounded border p-2"
-          value={form.start_date}
-          onChange={(e) =>
-            setForm({
-              ...form,
-              start_date: e.target.value,
-            })
-          }
-        />
+  <select
+    className="mt-1 w-full rounded border p-2"
+    value={form.priority}
+    onChange={(e) =>
+      setForm({
+        ...form,
+        priority: e.target.value,
+      })
+    }
+  >
+    <option value="Routine">Routine</option>
+    <option value="Important">Important</option>
+    <option value="Urgent">Urgent</option>
+    <option value="Critical">Critical</option>
+  </select>
+</div>
+
+
+
+
+
+
+<label>Assigned To</label>
+
+<input
+  className="mt-1 w-full rounded border p-2"
+  placeholder="Search by Army No or Name"
+  value={search}
+  onChange={(e) => setSearch(e.target.value)}
+/>
+
+<div className="mt-2 max-h-60 overflow-y-auto rounded border">
+
+  {filteredPersonnel.map((person) => (
+
+    <button
+      type="button"
+      key={person.id}
+      className={`block w-full border-b px-3 py-2 text-left hover:bg-gray-100 ${
+        form.assigned_to === person.id
+          ? "bg-emerald-100"
+          : ""
+      }`}
+      onClick={() =>
+        setForm({
+          ...form,
+          assigned_to: person.id,
+        })
+      }
+    >
+
+      <div className="font-medium">
+
+        {person.army_no}
+
+        {" - "}
+
+        {person.full_name}
+
+      </div>
+
+      <div className="text-sm text-gray-500">
+
+        {person.companies?.short_name}
+
+        {person.platoons?.platoon_name}
+
+      </div>
+
+    </button>
+
+  ))}
+
+</div>
+
+</div>
+
+
 
         <input
           type="date"
@@ -242,17 +315,22 @@ console.log(payload);
           }
         />
 
-        <textarea
-          className="w-full rounded border p-2"
-          placeholder="Remarks"
-          value={form.remarks}
-          onChange={(e) =>
-            setForm({
-              ...form,
-              remarks: e.target.value,
-            })
-          }
-        />
+        <div>
+  <label>Notes</label>
+
+  <textarea
+    rows={4}
+    className="mt-1 w-full rounded border p-2"
+    placeholder="Additional notes"
+    value={form.notes}
+    onChange={(e) =>
+      setForm({
+        ...form,
+        notes: e.target.value,
+      })
+    }
+  />
+</div>
 
         <button className="rounded bg-emerald-700 px-5 py-2 text-white">
           Save Task

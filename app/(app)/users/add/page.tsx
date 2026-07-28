@@ -4,63 +4,57 @@ import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 
 import {
-  getCompanies,
-} from "@/services/lookupService";
-
-import {
+  getPersonnelWithoutAccount,
   createUser,
 } from "@/services/userService";
+
+import { getCompanies } from "@/services/lookupService";
 
 export default function AddUserPage() {
   const router = useRouter();
 
+  const [personnel, setPersonnel] = useState<any[]>([]);
   const [companies, setCompanies] = useState<any[]>([]);
 
   const [form, setForm] = useState({
-  full_name: "",
-  email: "",
-  password: "",
-  role: "Company Commander",
-  company_id: "",
-  is_active: true,
-});
+    personnel_id: "",
+
+    email: "",
+
+    password: "",
+
+    role: "",
+
+    company_id: "",
+  });
 
   useEffect(() => {
-    async function load() {
-      const data = await getCompanies();
-      setCompanies(data);
-    }
-
     load();
   }, []);
 
-  async function handleSubmit(
-    e: React.FormEvent
-  ) {
+  async function load() {
+    setPersonnel(await getPersonnelWithoutAccount());
+    setCompanies(await getCompanies());
+  }
+
+  async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
 
     try {
-      await createUser({
-        ...form,
-        company_id: form.company_id
-          ? Number(form.company_id)
-          : null,
-      });
+      await createUser(form);
 
       alert("User created successfully.");
 
       router.push("/users");
-
-    } catch (err) {
-      console.error(err);
-      alert("Failed to create user.");
+    } catch (err: any) {
+      alert(err.message);
     }
   }
 
   return (
-    <div className="max-w-3xl rounded-xl bg-white p-8 shadow">
+    <div className="max-w-3xl">
 
-      <h1 className="mb-8 text-3xl font-bold">
+      <h1 className="mb-6 text-3xl font-bold">
         Add User
       </h1>
 
@@ -70,150 +64,158 @@ export default function AddUserPage() {
       >
 
         <div>
-          <label>Full Name</label>
 
-          <input
+          <label>Personnel</label>
+
+          <select
             className="mt-1 w-full rounded border p-2"
-            value={form.full_name}
-            onChange={(e)=>
+            value={form.personnel_id}
+            onChange={(e) =>
               setForm({
                 ...form,
-                full_name:e.target.value
+                personnel_id: e.target.value,
               })
             }
-          />
+          >
+
+            <option value="">
+              Select Personnel
+            </option>
+
+            {personnel.map((p) => (
+
+              <option
+                key={p.id}
+                value={p.id}
+              >
+                {p.army_no} - {p.full_name}
+              </option>
+
+            ))}
+
+          </select>
+
         </div>
 
         <div>
+
           <label>Email</label>
 
           <input
             type="email"
             className="mt-1 w-full rounded border p-2"
             value={form.email}
-            onChange={(e)=>
+            onChange={(e) =>
               setForm({
                 ...form,
-                email:e.target.value
+                email: e.target.value,
               })
             }
           />
+
         </div>
 
         <div>
-  <label>Password</label>
 
-  <input
-    type="password"
-    className="mt-1 w-full rounded border p-2"
-    value={form.password}
-    onChange={(e) =>
-      setForm({
-        ...form,
-        password: e.target.value,
-      })
-    }
-  />
-</div>
+          <label>Password</label>
+
+          <input
+            type="password"
+            className="mt-1 w-full rounded border p-2"
+            value={form.password}
+            onChange={(e) =>
+              setForm({
+                ...form,
+                password: e.target.value,
+              })
+            }
+          />
+
+        </div>
 
         <div>
+
           <label>Role</label>
 
-          
-          
-          
           <select
-  className="w-full rounded border p-2"
-  value={form.role}
-  onChange={(e) =>
-    setForm({
-      ...form,
-      role: e.target.value,
-    })
-  }
->
-  <option value="">Select Role</option>
+            className="mt-1 w-full rounded border p-2"
+            value={form.role}
+            onChange={(e) =>
+              setForm({
+                ...form,
+                role: e.target.value,
+              })
+            }
+          >
 
-  <option value="ADMIN">
-    ADMIN
-  </option>
+            <option value="">Select Role</option>
 
-  <option value="CONTINGENT COMMANDER">
-    CONTINGENT COMMANDER
-  </option>
+            <option value="ADMIN">
+              ADMIN
+            </option>
 
-  <option value="DEPUTY CONTINGENT COMMANDER">
-    DEPUTY CONTINGENT COMMANDER
-  </option>
+            <option value="CONTINGENT COMMANDER">
+              CONTINGENT COMMANDER
+            </option>
 
-  <option value="COMPANY COMMANDER">
-    COMPANY COMMANDER
-  </option>
+            <option value="DEPUTY CONTINGENT COMMANDER">
+              DEPUTY CONTINGENT COMMANDER
+            </option>
 
-  <option value="PLATOON COMMANDER">
-    PLATOON COMMANDER
-  </option>
+            <option value="COMPANY COMMANDER">
+              COMPANY COMMANDER
+            </option>
 
-  <option value="COMPANY CLERK">
-    COMPANY CLERK
-  </option>
-</select>
+            <option value="COMPANY CLERK">
+              COMPANY CLERK
+            </option>
 
+            <option value="PLATOON COMMANDER">
+              PLATOON COMMANDER
+            </option>
+
+          </select>
 
         </div>
 
         <div>
+
           <label>Company</label>
 
           <select
             className="mt-1 w-full rounded border p-2"
             value={form.company_id}
-            onChange={(e)=>
+            onChange={(e) =>
               setForm({
                 ...form,
-                company_id:e.target.value
+                company_id: e.target.value,
               })
             }
           >
+
             <option value="">
               Select Company
             </option>
 
-            {companies.map((company)=>(
+            {companies.map((c) => (
+
               <option
-                key={company.id}
-                value={company.id}
+                key={c.id}
+                value={c.id}
               >
-                {company.name}
+                {c.name}
               </option>
+
             ))}
 
           </select>
-        </div>
-
-        <div className="flex items-center gap-3">
-
-          <input
-            type="checkbox"
-            checked={form.is_active}
-            onChange={(e)=>
-              setForm({
-                ...form,
-                is_active:e.target.checked
-              })
-            }
-          />
-
-          <label>
-            Active User
-          </label>
 
         </div>
 
         <button
-          className="rounded bg-emerald-700 px-6 py-3 text-white hover:bg-emerald-800"
+          className="rounded bg-emerald-700 px-5 py-2 text-white"
         >
-          Save User
+          Create User
         </button>
 
       </form>
