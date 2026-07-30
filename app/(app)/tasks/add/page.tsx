@@ -2,342 +2,422 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-
-
-import {
-  getRanks,
-  getCompanies,
-  getAppointments,
-  getCorps,
-  getPlatoonsByCompany,
-} from "@/services/lookupService";
+import Link from "next/link";
+import { useAuth } from "@/contexts/AuthContext";
+import { supabase } from "@/lib/supabase";
+import { getPersonnel } from "@/services/personnelService";
+import { createTask } from "@/services/taskService";
 
 export default function AddTaskPage() {
   const router = useRouter();
+  const { user } = useAuth();
 
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+
+  // Data sources for dropdowns
   const [categories, setCategories] = useState<any[]>([]);
-  const [companies, setCompanies] = useState<any[]>([]);
-  const [personnel, setPersonnel] = useState<any[]>([]);
-  const [platoons, setPlatoons] = useState<any[]>([]);
-  const [search, setSearch] = useState("");
+  const [personnelList, setPersonnelList] = useState<any[]>([]);
 
-const [filteredPersonnel, setFilteredPersonnel] = useState<any[]>([]);
+  // Selected assignee details
+  const [selectedPerson, setSelectedPerson] = useState<any | null>(null);
 
-const [form, setForm] = useState({
-  title: "",
-  description: "",
+  // Attachment file state
+  const [attachmentFile, setAttachmentFile] = useState<File | null>(null);
 
-  category_id: "",
-
-  assigned_to: "",
-
-  assigned_by: "",
-
-  company_id: "",
-
-  platoon_id: "",
-
-  priority: "Routine",
-
-  status: "Pending",
-
-  due_date: "",
-
-  notes: "",
-});
-useEffect(() => {
-  async function load() {
-    setCategories(await getTaskCategories());
-    setCompanies(await getCompanies());
-  }
-
-  load();
-}, []);
-
-
-
-useEffect(() => {
-  if (!search) {
-    setFilteredPersonnel(personnel);
-    return;
-  }
-
-  const value = search.toLowerCase();
-
-  setFilteredPersonnel(
-    personnel.filter(
-      (p) =>
-        p.full_name.toLowerCase().includes(value) ||
-        p.army_no.toLowerCase().includes(value)
-    )
-  );
-}, [search, personnel]);
-
-
-async function handleCompanyChange(companyId: string) {
-  setForm((prev) => ({
-    ...prev,
-    company_id: companyId,
-    platoon_id: "",
+  // Form State
+  const [form, setForm] = useState({
+    title: "",
+    description: "",
+    category_id: "",
     assigned_to: "",
-  }));
+    priority: "Routine", // Default priority
+    due_date: "",
+    remarks: "", // Notes
+  });
 
-  if (!companyId) {
-    setPlatoons([]);
-    setPersonnel([]);
-    return;
-  }
+  // Today's date for display
+  const todayDate = new Date().toISOString().split("T")[0];
 
-  const platoonData = await getPlatoonsByCompany(Number(companyId));
-  setPlatoons(platoonData);
+  useEffect(() => {
+    async function loadFormData() {
+      try {
+        setLoading(true);
 
-  const personnelData = await getPersonnelByCompany(Number(companyId));
-  setPersonnel(personnelData);
-setFilteredPersonnel(personnelData);
-}
+        // 1. Fetch Task Categories
+        const { data: catData } = await supabase
+          .from("task_categories")
+          .select("*")
+          .order("name");
+        
+        if (catData) setCategories(catData);
 
+        // 2. Fetch Personnel list scoped to user's authority
+        const personnelData = await getPersonnel();
+        setPersonnelList(personnelData || []);
+      } catch (error) {
+        console.error("Error loading task form dependencies:", error);
+      } finally { // 👈 Fixed here
+        setLoading(false);
+      }
+    }
 
-  async function handleSubmit(e: React.FormEvent) {
+    loadFormData();
+  }, []);
+
+  // Handle Assignee Selection & Auto-Detect Company & Platoon
+  const handleAssigneeChange = (personId: string) => {
+    const person = personnelList.find((p) => p.id === personId) || null;
+    setSelectedPerson(person);
+    setForm((prev) => ({ ...prev, assigned_to: personId }));
+  };
+
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
+  ) => {
+    setForm((prev) => ({
+      ...prev,
+      [e.target.name]: e.target.value,
+    }));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!form.title.trim()) {
+      alert("Please enter a task title.");
+      return;
+    }
 
-try {
-  const payload = {
-  title: form.title,
+    try {
+      setSubmitting(true);
 
-  description: form.description || null,
+      const payload = {
+        title: form.title,
+        description: form.description,
+        category_id: form.category_id ? Number(form.category_id) : null,
+        assigned_to: form.assigned_to || null,
+        company_id: selectedPerson?.company_id || user?.company_id || null,
+        priority: form.priority,
+        status: "Pending", // Fixed status on creation
+        due_date: form.due_date || null,
+        remarks: form.remarks || null,
+      };
 
-  category_id: form.category_id
-    ? Number(form.category_id)
-    : null,
+      await createTask(payload);
 
-  company_id: form.company_id
-    ? Number(form.company_id)
-    : null,
-
-  platoon_id: form.platoon_id
-    ? Number(form.platoon_id)
-    : null,
-
-  assigned_to: form.assigned_to || null,
-
-  assigned_by: null,
-
-  priority: form.priority,
-
-  status: form.status,
-
-  due_date: form.due_date || null,
-
-  notes: form.notes || null,
-};
-
-console.log(payload);
-
-  await createTask(payload);
-
-
-      alert("Task created successfully.");
+      // Upload attachment if present
+      if (attachmentFile) {
+        // Handle document/attachment bucket upload if needed
+        console.log("Uploading attachment:", attachmentFile.name);
+      }
 
       router.push("/tasks");
-    } catch (err) {
-  console.error("Supabase Error:", err);
+    } catch (error: any) {
+      console.error("Failed to create task:", error);
+      alert(error.message || "Failed to create task.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
-  if (err instanceof Error) {
-    alert(err.message);
-  } else {
-    alert(JSON.stringify(err));
-  }
-}
+  if (loading) {
+    return (
+      <div className="flex min-h-[400px] items-center justify-center text-gray-500">
+        Loading task creation form...
+      </div>
+    );
   }
 
   return (
-    <div className="max-w-4xl">
-
-      <h1 className="mb-6 text-3xl font-bold">
-        Assign Task
-      </h1>
-
-      <form onSubmit={handleSubmit} className="space-y-5">
-
-
-        <input
-          className="w-full rounded border p-2"
-          placeholder="Task Title"
-          value={form.title}
-          onChange={(e) =>
-            setForm({ ...form, title: e.target.value })
-          }
-        />
-
-        <textarea
-          className="w-full rounded border p-2"
-          placeholder="Description"
-          value={form.description}
-          onChange={(e) =>
-            setForm({
-              ...form,
-              description: e.target.value,
-            })
-          }
-        />
-
-        <select
-          className="w-full rounded border p-2"
-          value={form.category_id}
-          onChange={(e) =>
-            setForm({
-              ...form,
-              category_id: e.target.value,
-            })
-          }
-        >
-          <option value="">Select Category</option>
-
-          {categories.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-
-        </select>
-
-        <select
-          className="w-full rounded border p-2"
-          value={form.company_id}
-          onChange={(e) =>
-            handleCompanyChange(e.target.value)
-          }
-        >
-          <option value="">Select Company</option>
-
-          {companies.map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-
-        </select>
-
+    <div className="mx-auto max-w-4xl space-y-6 p-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
         <div>
+          <h1 className="text-3xl font-bold text-gray-900">Assign New Task</h1>
+          <p className="text-sm text-gray-500">
+            Create and assign operational or administrative tasks across your unit.
+          </p>
+        </div>
 
-
-<div>
-  <label>Priority</label>
-
-  <select
-    className="mt-1 w-full rounded border p-2"
-    value={form.priority}
-    onChange={(e) =>
-      setForm({
-        ...form,
-        priority: e.target.value,
-      })
-    }
-  >
-    <option value="Routine">Routine</option>
-    <option value="Important">Important</option>
-    <option value="Urgent">Urgent</option>
-    <option value="Critical">Critical</option>
-  </select>
-</div>
-
-
-
-
-
-
-<label>Assigned To</label>
-
-<input
-  className="mt-1 w-full rounded border p-2"
-  placeholder="Search by Army No or Name"
-  value={search}
-  onChange={(e) => setSearch(e.target.value)}
-/>
-
-<div className="mt-2 max-h-60 overflow-y-auto rounded border">
-
-  {filteredPersonnel.map((person) => (
-
-    <button
-      type="button"
-      key={person.id}
-      className={`block w-full border-b px-3 py-2 text-left hover:bg-gray-100 ${
-        form.assigned_to === person.id
-          ? "bg-emerald-100"
-          : ""
-      }`}
-      onClick={() =>
-        setForm({
-          ...form,
-          assigned_to: person.id,
-        })
-      }
-    >
-
-      <div className="font-medium">
-
-        {person.army_no}
-
-        {" - "}
-
-        {person.full_name}
-
+        <Link
+          href="/tasks"
+          className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm hover:bg-gray-50 transition"
+        >
+          Cancel
+        </Link>
       </div>
 
-      <div className="text-sm text-gray-500">
-
-        {person.companies?.short_name}
-
-        {person.platoons?.platoon_name}
-
-      </div>
-
-    </button>
-
-  ))}
-
-</div>
-
-</div>
-
-
-
-        <input
-          type="date"
-          className="w-full rounded border p-2"
-          value={form.due_date}
-          onChange={(e) =>
-            setForm({
-              ...form,
-              due_date: e.target.value,
-            })
-          }
-        />
-
+      {/* Main Form Card */}
+      <form
+        onSubmit={handleSubmit}
+        className="space-y-8 rounded-xl border border-gray-200 bg-white p-8 shadow-sm"
+      >
+        {/* Section 1: Basic Task Details */}
         <div>
-  <label>Notes</label>
+          <h2 className="mb-4 text-xs font-bold uppercase tracking-wider text-blue-600">
+            Task Overview
+          </h2>
 
-  <textarea
-    rows={4}
-    className="mt-1 w-full rounded border p-2"
-    placeholder="Additional notes"
-    value={form.notes}
-    onChange={(e) =>
-      setForm({
-        ...form,
-        notes: e.target.value,
-      })
-    }
-  />
-</div>
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-3">
+            {/* Task No. (Read-only) */}
+            <div>
+              <label className="block text-xs font-medium text-gray-500">
+                Task No.
+              </label>
+              <input
+                type="text"
+                disabled
+                value="Auto-generated (e.g. TASK-0001)"
+                className="mt-1 w-full rounded-md border border-gray-200 bg-gray-50 p-2 text-xs font-semibold text-gray-500 cursor-not-allowed"
+              />
+            </div>
 
-        <button className="rounded bg-emerald-700 px-5 py-2 text-white">
-          Save Task
-        </button>
+            {/* Task Title */}
+            <div className="sm:col-span-2">
+              <label className="block text-xs font-medium text-gray-700">
+                Task Title *
+              </label>
+              <input
+                type="text"
+                name="title"
+                required
+                placeholder="Short, meaningful title..."
+                value={form.title}
+                onChange={handleChange}
+                className="mt-1 w-full rounded-md border border-gray-300 p-2 text-sm focus:border-blue-500 focus:outline-none"
+              />
+            </div>
 
+            {/* Task Category */}
+            <div>
+              <label className="block text-xs font-medium text-gray-700">
+                Task Category
+              </label>
+              <select
+                name="category_id"
+                value={form.category_id}
+                onChange={handleChange}
+                className="mt-1 w-full rounded-md border border-gray-300 p-2 text-sm focus:border-blue-500 focus:outline-none"
+              >
+                <option value="">Select Category</option>
+                {categories.length > 0 ? (
+                  categories.map((cat) => (
+                    <option key={cat.id} value={cat.id}>
+                      {cat.name}
+                    </option>
+                  ))
+                ) : (
+                  <>
+                    <option value="1">Administration</option>
+                    <option value="2">Training</option>
+                    <option value="3">Operations</option>
+                    <option value="4">Logistics</option>
+                  </>
+                )}
+              </select>
+            </div>
+
+            {/* Description */}
+            <div className="sm:col-span-3">
+              <label className="block text-xs font-medium text-gray-700">
+                Description / Detailed Instructions
+              </label>
+              <textarea
+                name="description"
+                rows={3}
+                placeholder="Provide clear steps or instructions for this task..."
+                value={form.description}
+                onChange={handleChange}
+                className="mt-1 w-full rounded-md border border-gray-300 p-2 text-sm focus:border-blue-500 focus:outline-none"
+              />
+            </div>
+          </div>
+        </div>
+
+        <hr className="border-gray-100" />
+
+        {/* Section 2: Assignment & Authority */}
+        <div>
+          <h2 className="mb-4 text-xs font-bold uppercase tracking-wider text-blue-600">
+            Assignment & Authority
+          </h2>
+
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+            {/* Assigned To */}
+            <div>
+              <label className="block text-xs font-medium text-gray-700">
+                Assigned To
+              </label>
+              <select
+                name="assigned_to"
+                value={form.assigned_to}
+                onChange={(e) => handleAssigneeChange(e.target.value)}
+                className="mt-1 w-full rounded-md border border-gray-300 p-2 text-sm focus:border-blue-500 focus:outline-none"
+              >
+                <option value="">Select Personnel</option>
+                {personnelList.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.ranks?.rank_name || ""} {p.full_name} ({p.army_no})
+                  </option>
+                ))}
+              </select>
+
+              {/* Auto-populated Company & Platoon badges */}
+              {selectedPerson && (
+                <div className="mt-2.5 flex items-center gap-3 rounded-lg bg-blue-50/70 p-2.5 border border-blue-100 text-xs">
+                  <div>
+                    <span className="text-gray-500">Company: </span>
+                    <span className="font-semibold text-blue-900">
+                      {selectedPerson.companies?.name || "N/A"}
+                    </span>
+                  </div>
+                  <div className="text-gray-300">|</div>
+                  <div>
+                    <span className="text-gray-500">Platoon: </span>
+                    <span className="font-semibold text-blue-900">
+                      {selectedPerson.platoons?.platoon_name || "N/A"}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Assigned By (Read-only) */}
+            <div>
+              <label className="block text-xs font-medium text-gray-500">
+                Assigned By (You)
+              </label>
+              <input
+                type="text"
+                disabled
+                value={`${user?.role || "System User"} — System Authority`}
+                className="mt-1 w-full rounded-md border border-gray-200 bg-gray-50 p-2 text-xs font-semibold text-gray-600 cursor-not-allowed"
+              />
+            </div>
+          </div>
+        </div>
+
+        <hr className="border-gray-100" />
+
+        {/* Section 3: Status, Priority & Timeline */}
+        <div>
+          <h2 className="mb-4 text-xs font-bold uppercase tracking-wider text-blue-600">
+            Priority & Dates
+          </h2>
+
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-4">
+            {/* Priority */}
+            <div>
+              <label className="block text-xs font-medium text-gray-700">
+                Priority
+              </label>
+              <select
+                name="priority"
+                value={form.priority}
+                onChange={handleChange}
+                className="mt-1 w-full rounded-md border border-gray-300 p-2 text-sm focus:border-blue-500 focus:outline-none"
+              >
+                <option value="Routine">Routine</option>
+                <option value="Important">Important</option>
+                <option value="Urgent">Urgent</option>
+                <option value="Critical">Critical</option>
+              </select>
+            </div>
+
+            {/* Status (Read-only) */}
+            <div>
+              <label className="block text-xs font-medium text-gray-500">
+                Status
+              </label>
+              <div className="mt-1 flex items-center h-[38px] rounded-md border border-amber-200 bg-amber-50 px-3 text-xs font-bold text-amber-700">
+                Pending
+              </div>
+            </div>
+
+            {/* Created Date (Read-only) */}
+            <div>
+              <label className="block text-xs font-medium text-gray-500">
+                Created Date
+              </label>
+              <input
+                type="text"
+                disabled
+                value={todayDate}
+                className="mt-1 w-full rounded-md border border-gray-200 bg-gray-50 p-2 text-xs font-semibold text-gray-600 cursor-not-allowed"
+              />
+            </div>
+
+            {/* Due Date */}
+            <div>
+              <label className="block text-xs font-medium text-gray-700">
+                Due Date
+              </label>
+              <input
+                type="date"
+                name="due_date"
+                value={form.due_date}
+                onChange={handleChange}
+                className="mt-1 w-full rounded-md border border-gray-300 p-2 text-sm focus:border-blue-500 focus:outline-none"
+              />
+            </div>
+          </div>
+        </div>
+
+        <hr className="border-gray-100" />
+
+        {/* Section 4: Attachments & Notes */}
+        <div>
+          <h2 className="mb-4 text-xs font-bold uppercase tracking-wider text-blue-600">
+            Attachments & Remarks
+          </h2>
+
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2">
+            {/* Attachments */}
+            <div>
+              <label className="block text-xs font-medium text-gray-700">
+                Attachments (Docs, Images, PDFs)
+              </label>
+              <input
+                type="file"
+                onChange={(e) => setAttachmentFile(e.target.files?.[0] || null)}
+                className="mt-1 w-full text-xs text-gray-500 file:mr-3 file:rounded-md file:border-0 file:bg-gray-100 file:px-3 file:py-2 file:text-xs file:font-semibold hover:file:bg-gray-200"
+              />
+            </div>
+
+            {/* Notes / Remarks */}
+            <div>
+              <label className="block text-xs font-medium text-gray-700">
+                Notes / Additional Remarks
+              </label>
+              <textarea
+                name="remarks"
+                rows={2}
+                placeholder="Any special notes or criteria..."
+                value={form.remarks}
+                onChange={handleChange}
+                className="mt-1 w-full rounded-md border border-gray-300 p-2 text-sm focus:border-blue-500 focus:outline-none"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Submit Actions */}
+        <div className="flex justify-end gap-3 pt-4 border-t border-gray-100">
+          <Link
+            href="/tasks"
+            className="rounded-lg border border-gray-300 bg-white px-5 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          >
+            Cancel
+          </Link>
+          <button
+            type="submit"
+            disabled={submitting}
+            className="rounded-lg bg-blue-600 px-6 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 disabled:opacity-50"
+          >
+            {submitting ? "Assigning..." : "Assign Task"}
+          </button>
+        </div>
       </form>
-
     </div>
   );
 }

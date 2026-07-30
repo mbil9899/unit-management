@@ -1,45 +1,33 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { getCurrentUserProfile } from "@/services/authService";
+import { useAuth } from "@/contexts/AuthContext";
 
 export default function AuthGuard({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const { user, loading } = useAuth();
   const router = useRouter();
 
-  const [loading, setLoading] = useState(true);
-
   useEffect(() => {
-    async function checkUser() {
-      const user = await getCurrentUserProfile();
-
-      if (!user) {
-        router.replace("/login");
-        return;
-      }
-
-      if (!user.is_active) {
-        alert("Your account has been disabled.");
-        router.replace("/login");
-        return;
-      }
-
-      setLoading(false);
+    if (!loading && !user) {
+      router.push("/login");
     }
-
-    checkUser();
-  }, [router]);
+  }, [user, loading, router]);
 
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center">
-        Loading...
+      <div className="flex h-screen w-full items-center justify-center bg-gray-50 text-sm font-medium text-gray-500">
+        Authenticating session...
       </div>
     );
+  }
+
+  if (!user) {
+    return null;
   }
 
   return <>{children}</>;

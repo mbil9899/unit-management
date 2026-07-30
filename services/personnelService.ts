@@ -1,40 +1,7 @@
 import { supabase } from "@/lib/supabase";
 import { getCurrentUser } from "./authService";
 
-// Create a new personnel
-export async function createPersonnel(personnel: any) {
-  const payload = {
-    ...personnel,
-    rank_id: personnel.rank_id ? Number(personnel.rank_id) : null,
-    company_id: personnel.company_id ? Number(personnel.company_id) : null,
-    appointment_id: personnel.appointment_id
-      ? Number(personnel.appointment_id)
-      : null,
-    corps_id: personnel.corps_id
-  ? Number(personnel.corps_id)
-  : null,
-
-platoon_id: personnel.platoon_id
-  ? Number(personnel.platoon_id)
-  : null,
-  };
-
-  // ===== DEBUG =====
-  console.log("Personnel Payload:", payload);
-
-  const { data, error } = await supabase
-    .from("personnel")
-    .insert([payload])
-    .select();
-
-  console.log("Supabase Data:", data);
-  console.log("Supabase Error:", error);
-  // ================
-
-  if (error) throw error;
-
-  return data[0];
-}
+// Fetch personnel based on RBAC visibility rules
 export async function getPersonnel() {
   const user = await getCurrentUser();
 
@@ -43,105 +10,130 @@ export async function getPersonnel() {
     .select(`
       *,
       ranks(rank_name),
+      corps(corps_name),
       companies(name),
-      appointments(appointment_name),
-      platoons(platoon_name)
+      platoons(platoon_name),
+      appointments(appointment_name)
     `)
-    .order("army_no");
+    .order("created_at", { ascending: false });
 
-  switch (user.role) {
+  // ... (leave the rest of your RBAC logic the same)
+
+  const role = user?.role ? user.role.toUpperCase().trim() : "";
+
+  // Enforce data visibility based on user role
+  switch (role) {
     case "ADMIN":
     case "CONTINGENT COMMANDER":
     case "DEPUTY CONTINGENT COMMANDER":
+      // Full battalion visibility — no company_id restriction
       break;
 
     case "COMPANY COMMANDER":
     case "COMPANY CLERK":
-      query = query.eq("company_id", user.company_id);
+      if (user?.company_id) {
+        query = query.eq("company_id", user.company_id);
+      }
       break;
 
     case "PLATOON COMMANDER":
-      // We'll add platoon filtering later.
-      query = query.eq("company_id", user.company_id);
+      if (user?.platoon_id) {
+        query = query.eq("platoon_id", user.platoon_id);
+      } else if (user?.company_id) {
+        query = query.eq("company_id", user.company_id);
+      }
       break;
 
     default:
-      query = query.eq("id", "00000000-0000-0000-0000-000000000000");
+      if (user?.personnel_id) {
+        query = query.eq("id", user.personnel_id);
+      }
+      break;
   }
 
   const { data, error } = await query;
 
-  if (error) throw error;
+  if (error) {
+    console.error("Error fetching personnel:", error);
+    throw error;
+  }
 
   return data;
 }
 
-
+// Fetch single personnel record by ID
+// Fetch single personnel record by ID
 export async function getPersonnelById(id: string) {
   const { data, error } = await supabase
     .from("personnel")
-    .select("*")
+    .select(`
+      *,
+      ranks(rank_name),
+      corps(corps_name),
+      companies(name),
+      platoons(platoon_name),
+      appointments(appointment_name)
+    `)
     .eq("id", id)
     .single();
 
-  if (error) throw error;
+  // ... (leave the rest the same)
+
+  if (error) {
+    console.error("Error fetching personnel by ID:", error);
+    throw error;
+  }
 
   return data;
 }
 
+// Create personnel (Guard: Company Commander restricted)
+export async function createPersonnel(personnelData: any) {
+  const user = await getCurrentUser();
+  const role = user?.role ? user.role.toUpperCase().trim() : "";
 
-export async function updatePersonnel(
-  id: string,
-  personnel: any
-) {
-  const payload = {
-    ...personnel,
-
-    rank_id:
-      personnel.rank_id
-        ? Number(personnel.rank_id)
-        : null,
-
-    company_id:
-      personnel.company_id
-        ? Number(personnel.company_id)
-        : null,
-
-    appointment_id:
-      personnel.appointment_id
-        ? Number(personnel.appointment_id)
-        : null,
-
-    corps_id:
-      personnel.corps_id
-        ? Number(personnel.corps_id)
-        : null,
-
-      platoon_id:
-  personnel.platoon_id
-    ? Number(personnel.platoon_id)
-    : null,  
-
-    date_of_birth:
-      personnel.date_of_birth || null,
-
-    ret:
-      personnel.ret || null,
-  };
+  if (role === "COMPANY COMMANDER") {
+    throw new Error("Company Commanders are not authorized to create personnel records.");
+  }
 
   const { data, error } = await supabase
     .from("personnel")
-    .update(payload)
+    .insert([personnelData])
+    .select();
+
+  if (error) throw error;
+  return data[0];
+}
+
+// Update personnel (Guard: Company Commander restricted)
+export async function updatePersonnel(id: string, personnelData: any) {
+  const user = await getCurrentUser();
+  const role = user?.role ? user.role.toUpperCase().trim() : "";
+
+  if (role === "COMPANY COMMANDER") {
+    throw new Error("Company Commanders are not authorized to edit personnel records.");
+  }
+
+  const { data, error } = await supabase
+    .from("personnel")
+    .update({ ...personnelData, updated_at: new Date().toISOString() })
     .eq("id", id)
     .select()
     .single();
 
   if (error) throw error;
-
   return data;
 }
 
+// Delete personnel (Guard: Restricted to Admin and Contingent Command)
 export async function deletePersonnel(id: string) {
+  const user = await getCurrentUser();
+  const role = user?.role ? user.role.toUpperCase().trim() : "";
+
+  if (!["ADMIN", "CONTINGENT COMMANDER", "DEPUTY CONTINGENT COMMANDER"].includes(role)) {
+    throw new Error("You are not authorized to delete personnel records.");
+  }
+
   const { error } = await supabase
     .from("personnel")
     .delete()
@@ -150,34 +142,39 @@ export async function deletePersonnel(id: string) {
   if (error) throw error;
 }
 
-export async function uploadPersonnelPhoto(
-  file: File,
-  personnelId: string
-) {
-  const ext = file.name.split(".").pop();
+// Upload Personnel Photo to Supabase Storage
+// ✅ CORRECTED CODE (Uploads to the bucket root)
+// ... (rest of your code above)
 
-  const fileName = `${personnelId}.${ext}`;
+// Upload Personnel Photo to Supabase Storage
+export async function uploadPersonnelPhoto(file: File) {
+  try {
+    // Generate a unique file name
+    const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.jpeg`;
+    
+    // Set the path to JUST the file name (no "photos/" prefix)
+    const filePath = `${fileName}`; 
 
-  const { error } = await supabase.storage
-    .from("personnel-photos")
-    .upload(fileName, file, {
-      upsert: true,
-    });
+    // Upload the file
+    const { error: uploadError } = await supabase.storage
+      .from("personnel-photos")
+      .upload(filePath, file);
 
-  if (error) throw error;
+    if (uploadError) {
+      throw uploadError;
+    }
 
-  const {
-    data: { publicUrl },
-  } = supabase.storage
-    .from("personnel-photos")
-    .getPublicUrl(fileName);
+    // Get the public URL
+    const { data: publicUrlData } = supabase.storage
+      .from("personnel-photos")
+      .getPublicUrl(filePath);
 
-  await supabase
-    .from("personnel")
-    .update({
-      photo_url: publicUrl,
-    })
-    .eq("id", personnelId);
-
-  return publicUrl;
+    // Return the URL safely inside the try block
+    return publicUrlData.publicUrl;
+    
+  } catch (error) {
+    console.error("Error uploading photo:", error);
+    throw error;
+  }
 }
+// <-- THE FILE SHOULD END EXACTLY HERE. NO CODE BELOW THIS LINE.

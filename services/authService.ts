@@ -1,34 +1,51 @@
 import { supabase } from "@/lib/supabase";
 
-export async function getCurrentUserProfile() {
+export async function getCurrentUser() {
+  // 1. Get authenticated session user from Supabase Auth
   const {
-    data: { user },
+    data: { user: authUser },
+    error: authError,
   } = await supabase.auth.getUser();
 
-  if (!user) return null;
+  if (authError || !authUser) {
+    return null;
+  }
 
-  const { data, error } = await supabase
+  // 2. Fetch role and unit assignment from user_profiles using maybeSingle()
+  const { data: profile, error: profileError } = await supabase
     .from("user_profiles")
     .select(`
       *,
-      companies(name)
+      companies(name),
+      personnel(full_name, army_no, ranks(rank_name))
     `)
-    .eq("id", user.id)
-    .single();
+    .eq("id", authUser.id)
+    .maybeSingle();
 
-  if (error) throw error;
+  if (profileError) {
+    console.error("Error fetching user profile:", profileError);
+  }
 
-  return data;
+  return {
+    id: authUser.id,
+    email: authUser.email,
+    role: profile?.role || "USER",
+    company_id: profile?.company_id || null,
+    personnel_id: profile?.personnel_id || null,
+    is_active: profile?.is_active ?? true,
+    company: profile?.companies || null,
+    personnel: profile?.personnel || null,
+  };
 }
 
-// Backward compatibility
-export async function getCurrentUser() {
-  return getCurrentUserProfile();
-}
+// Alias export to satisfy AuthGuard imports
+export const getCurrentUserProfile = getCurrentUser;
 
-// Logout
+// Sign out function for user logout
 export async function signOut() {
   const { error } = await supabase.auth.signOut();
-
-  if (error) throw error;
+  if (error) {
+    console.error("Error signing out:", error);
+    throw error;
+  }
 }

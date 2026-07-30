@@ -1,123 +1,126 @@
 "use client";
 
+import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-
-import { signOut } from "@/services/authService";
-import AuthGuard from "@/components/AuthGuard";
-
 import { useAuth } from "@/contexts/AuthContext";
-
-import {
-  canAssignTasks,
-  canManageSettings,
-  canManageUsers,
-} from "@/services/permissionService";
+import AuthGuard from "@/components/AuthGuard";
 
 export default function AppLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const { user, logout } = useAuth();
+  const pathname = usePathname();
   const router = useRouter();
 
-  const { user, loading } = useAuth();
+  const handleLogout = async () => {
+    await logout();
+    router.push("/login");
+  };
 
-  async function handleLogout() {
-    try {
-      await signOut();
-      router.replace("/login");
-    } catch (err) {
-      console.error(err);
-      alert("Failed to logout.");
-    }
-  }
-
-  if (loading) {
-    return (
-      <div className="flex h-screen items-center justify-center">
-        Loading...
-      </div>
-    );
-  }
+  // Navigation Links
+  const navItems = [
+    { name: "Dashboard", href: "/dashboard", icon: "🏠" },
+    { name: "Tasks", href: "/tasks", icon: "📋" },
+    { name: "Personnel", href: "/personnel", icon: "👥" },
+  ];
 
   return (
     <AuthGuard>
-      <div className="min-h-screen bg-gray-100">
-
-        {/* Header */}
-
-        <header className="flex items-center justify-between bg-emerald-800 px-8 py-4 text-white shadow">
-
+      <div className="flex h-screen bg-[#F8F9FB] font-sans overflow-hidden">
+        
+        {/* ========================================= */}
+        {/* DESKTOP SIDEBAR (Matches Theme Reference) */}
+        {/* ========================================= */}
+        <aside className="w-[260px] bg-[#F8F9FB] flex-col justify-between py-8 px-6 hidden md:flex border-r border-gray-100/50">
+          
           <div>
+            {/* Logo Section */}
+            <div className="flex items-center gap-3 mb-12 px-2">
+              <img 
+                src="/logo.png" 
+                alt="BANRDB-9 Logo" 
+                className="w-12 h-12 object-contain drop-shadow-sm"
+              />
+              <span className="text-xl font-bold text-gray-900 tracking-tight">
+                BANRDB-9
+              </span>
+            </div>
 
-            <h1 className="text-2xl font-bold">
-              BANRDB-9
-            </h1>
-
-            <p className="text-sm text-emerald-100">
-              Task Management System
-            </p>
-
-            <p className="mt-2 text-xs">
-              {user?.full_name}
-            </p>
-
-            <p className="text-xs">
-              {user?.role}
-            </p>
-
+            {/* Navigation Menu */}
+            <nav className="space-y-2">
+              {navItems.map((item) => {
+                const isActive = pathname.includes(item.href);
+                return (
+                  <Link
+                    key={item.name}
+                    href={item.href}
+                    className={`flex items-center gap-4 px-4 py-3.5 rounded-2xl transition-all font-semibold text-sm ${
+                      isActive
+                        ? "bg-white text-gray-900 shadow-[0_2px_10px_rgb(0,0,0,0.02)]"
+                        : "text-gray-500 hover:text-gray-900 hover:bg-gray-50"
+                    }`}
+                  >
+                    <span className="text-lg opacity-80">{item.icon}</span>
+                    {item.name}
+                  </Link>
+                );
+              })}
+            </nav>
           </div>
 
+          {/* Bottom Sidebar Section (Banner & Logout) */}
+          <div className="space-y-4">
+            
+            {/* "Upgrade to Pro" style Banner */}
+            <div className="bg-white rounded-3xl p-6 text-center shadow-[0_2px_15px_rgb(0,0,0,0.02)] border border-gray-50 mb-4">
+              <h4 className="text-sm font-bold text-gray-900 mb-2">Help & Docs</h4>
+              <p className="text-xs text-gray-500 mb-5 leading-relaxed font-medium">
+                Get manuals and access unit documentation.
+              </p>
+              <button className="w-full bg-[#E5F0FF] text-blue-600 font-bold text-xs py-3 rounded-full hover:bg-blue-100 transition-colors">
+                View Docs
+              </button>
+            </div>
+
+            {/* Log Out Button */}
+            <button
+              onClick={handleLogout}
+              className="flex items-center gap-4 px-4 py-3 text-sm font-semibold text-gray-500 hover:text-red-600 transition w-full rounded-2xl hover:bg-red-50"
+            >
+              <span className="text-lg opacity-80">🚪</span>
+              Log out
+            </button>
+          </div>
+        </aside>
+
+        {/* ========================================= */}
+        {/* MOBILE TOP BAR (For small screens)        */}
+        {/* ========================================= */}
+        <div className="md:hidden fixed top-0 left-0 right-0 h-16 bg-white border-b border-gray-100 z-50 flex items-center justify-between px-6 shadow-sm">
+          <div className="flex items-center gap-2">
+            <img 
+              src="/logo.png" 
+              alt="BANRDB-9 Logo" 
+              className="w-9 h-9 object-contain drop-shadow-sm"
+            />
+            <span className="text-lg font-bold text-gray-900">BANRDB-9</span>
+          </div>
           <button
             onClick={handleLogout}
-            className="rounded bg-red-600 px-5 py-2 font-medium hover:bg-red-700"
+            className="text-xs font-bold text-red-600 bg-red-50 px-3 py-1.5 rounded-md"
           >
-            Logout
+            Log out
           </button>
+        </div>
 
-        </header>
-
-        {/* Navigation */}
-
-        <nav className="flex gap-6 border-b bg-white px-8 py-4 shadow-sm">
-
-          <Link href="/dashboard">
-            Dashboard
-          </Link>
-
-          <Link href="/personnel">
-            Personnel
-          </Link>
-
-          {canAssignTasks(user) && (
-            <Link href="/tasks">
-              Tasks
-            </Link>
-          )}
-
-          {canManageUsers(user) && (
-            <Link href="/users">
-              Users
-            </Link>
-          )}
-
-          <Link href="/reports">
-            Reports
-          </Link>
-
-          {canManageSettings(user) && (
-            <Link href="/settings">
-              Settings
-            </Link>
-          )}
-
-        </nav>
-
-        <main className="p-8">
+        {/* ========================================= */}
+        {/* MAIN CONTENT AREA                         */}
+        {/* ========================================= */}
+        <main className="flex-1 h-screen overflow-y-auto pt-16 md:pt-0 bg-[#F8F9FB]">
           {children}
         </main>
-
       </div>
     </AuthGuard>
   );

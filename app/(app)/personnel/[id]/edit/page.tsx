@@ -1,603 +1,537 @@
 "use client";
 
-import { uploadPersonnelPhoto } from "@/services/personnelService";
-import { useRouter } from "next/navigation";
-const [platoons, setPlatoons] = useState<any[]>([]);
-import { createPersonnel } from "@/services/personnelService";import {
+import { useEffect, useState } from "react";
+import { useParams, useRouter } from "next/navigation";
+import Link from "next/link";
+import { supabase } from "@/lib/supabase";
+import {
   getPersonnelById,
   updatePersonnel,
+  uploadPersonnelPhoto,
 } from "@/services/personnelService";
 
-import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
-import {
-  getRanks,
-  getCompanies,
-  getAppointments,
-  getCorps,
-  getPlatoonsByCompany,
-} from "@/services/lookupService";
-
-export default function AddPersonnelPage() {
+export default function EditPersonnelPage() {
+  const { id } = useParams();
   const router = useRouter();
-const { id } = useParams();
+
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [photoFile, setPhotoFile] = useState<File | null>(null);
+
+  const [ranks, setRanks] = useState<any[]>([]);
+  const [companies, setCompanies] = useState<any[]>([]);
+  const [platoons, setPlatoons] = useState<any[]>([]);
+  const [appointments, setAppointments] = useState<any[]>([]);
+  const [corpsList, setCorpsList] = useState<any[]>([]);
 
   const [form, setForm] = useState({
-  army_no: "",
-  full_name: "",
-
-  father_name: "",
-  mother_name: "",
-  hometown: "",
-
-  date_of_birth: "",
-
-  blood_group: "",
-  religion: "",
-
-  personal_mobile: "",
-  nok_mobile: "",
-
-  company_id: "",
-  platoon_id: "",
-  appointment_id: "",
-  corps_id: "",
-  rank_id: "",
-
-  ipft: "",
-  ret: "",
-
-  mission_medical: "",
-
-  leave_status: "",
-
-  medical_category: "",
-
-  photo_url: "",
-});
-
-useEffect(() => {
-  async function loadPersonnel() {
-  const data = await getPersonnelById(id as string);
-
-  setForm({
-  army_no: data.army_no ?? "",
-  full_name: data.full_name ?? "",
-
-  father_name: data.father_name ?? "",
-  mother_name: data.mother_name ?? "",
-  hometown: data.hometown ?? "",
-
-  date_of_birth: data.date_of_birth ?? "",
-
-  blood_group: data.blood_group ?? "",
-  religion: data.religion ?? "",
-
-  personal_mobile: data.personal_mobile ?? "",
-  nok_mobile: data.nok_mobile ?? "",
-
-  company_id: data.company_id?.toString() ?? "",
-  platoon_id: data.platoon_id?.toString() ?? "",
-  appointment_id: data.appointment_id?.toString() ?? "",
-  corps_id: data.corps_id?.toString() ?? "",
-  rank_id: data.rank_id?.toString() ?? "",
-
-  ipft: data.ipft ?? "",
-  ret: data.ret ?? "",
-
-  mission_medical: data.mission_medical ?? "",
-
-  leave_status: data.leave_status ?? "",
-
-  medical_category: data.medical_category ?? "",
-
-  photo_url: data.photo_url ?? "",
-});
-
-if (data.company_id) {
-  const platoonData = await getPlatoonsByCompany(data.company_id);
-  setPlatoons(platoonData);
-}
-
-}
-
-loadPersonnel();
-}, [id]);
-
-
-const [ranks, setRanks] = useState<any[]>([]);
-const [companies, setCompanies] = useState<any[]>([]);
-const [appointments, setAppointments] = useState<any[]>([]);
-const [corps, setCorps] = useState<any[]>([]);
-const [photo, setPhoto] = useState<File | null>(null);
-
-
-useEffect(() => {
-  async function loadData() {
-    const rankData = await getRanks();
-    const companyData = await getCompanies();
-    const appointmentData = await getAppointments();
-    const corpsData = await getCorps();
-
-    setRanks(rankData);
-    setCompanies(companyData);
-    setAppointments(appointmentData);
-    setCorps(corpsData);
-  }
-
-  loadData();
-}, []);
-
-
-async function handleCompanyChange(companyId: string) {
-  setForm((prev) => ({
-    ...prev,
-    company_id: companyId,
+    army_no: "",
+    rank_id: "",
+    full_name: "",
+    father_name: "",
+    mother_name: "",
+    hometown: "",
+    date_of_birth: "",
+    blood_group: "",
+    religion: "",
+    personal_mobile: "",
+    nok_mobile: "",
+    company_id: "",
     platoon_id: "",
-  }));
+    appointment_id: "",
+    corps_id: "",
+    ipft: "",
+    ret: "",
+    mission_medical: "",
+    leave_status: "",
+    medical_category: "",
+    photo_url: "",
+  });
 
-  if (!companyId) {
-    setPlatoons([]);
-    return;
-  }
+  useEffect(() => {
+    async function loadData() {
+      try {
+        setLoading(true);
 
-  const data = await getPlatoonsByCompany(Number(companyId));
-  setPlatoons(data);
-}
+        const [
+          { data: ranksData },
+          { data: companiesData },
+          { data: platoonsData },
+          { data: appointmentsData },
+          { data: corpsData },
+        ] = await Promise.all([
+          supabase.from("ranks").select("*").order("id"),
+          supabase.from("companies").select("*").order("name"),
+          supabase.from("platoons").select("*").order("platoon_name"),
+          supabase.from("appointments").select("*").order("appointment_name"),
+          supabase.from("corps").select("*"),
+        ]);
 
-  async function handleSubmit(e: React.FormEvent) {
+        if (ranksData) setRanks(ranksData);
+        if (companiesData) setCompanies(companiesData);
+        if (platoonsData) setPlatoons(platoonsData);
+        if (appointmentsData) setAppointments(appointmentsData);
+        if (corpsData) setCorpsList(corpsData);
+
+        const person = await getPersonnelById(id as string);
+
+        if (person) {
+          setForm({
+            army_no: person.army_no || "",
+            rank_id: person.rank_id ? String(person.rank_id) : "",
+            full_name: person.full_name || "",
+            father_name: person.father_name || "",
+            mother_name: person.mother_name || "",
+            hometown: person.hometown || "",
+            date_of_birth: person.date_of_birth || "",
+            blood_group: person.blood_group || "",
+            religion: person.religion || "",
+            personal_mobile: person.personal_mobile || "",
+            nok_mobile: person.nok_mobile || "",
+            company_id: person.company_id ? String(person.company_id) : "",
+            platoon_id: person.platoon_id ? String(person.platoon_id) : "",
+            appointment_id: person.appointment_id
+              ? String(person.appointment_id)
+              : "",
+            corps_id: person.corps_id ? String(person.corps_id) : "",
+            ipft: person.ipft || "",
+            ret: person.ret || "",
+            mission_medical: person.mission_medical || "",
+            leave_status: person.leave_status || "",
+            medical_category: person.medical_category || "",
+            photo_url: person.photo_url || "",
+          });
+        }
+      } catch (error) {
+        console.error("Error loading personnel for edit:", error);
+        alert("Failed to load personnel details.");
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    if (id) loadData();
+  }, [id]);
+
+  // Dynamically filter platoons based on selected company
+  const filteredPlatoons = form.company_id
+    ? platoons.filter((p) => String(p.company_id) === String(form.company_id))
+    : platoons;
+
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+  ) => {
+    const { name, value } = e.target;
+
+    if (name === "company_id") {
+      setForm((prev) => ({
+        ...prev,
+        company_id: value,
+        platoon_id: "", // Clear platoon selection on company change
+      }));
+    } else {
+      setForm((prev) => ({
+        ...prev,
+        [name]: value,
+      }));
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setSubmitting(true);
 
     try {
       await updatePersonnel(id as string, form);
 
-      if (photo) {
-  await uploadPersonnelPhoto(photo, id as string);
-}
+      if (photoFile) {
+        await uploadPersonnelPhoto(photoFile, id as string);
+      }
 
-      alert("Personnel updated successfully!");
-
-      router.push("/personnel");
-
-    } catch (err) {
-      console.error(err);
-      alert("Something went wrong.");
+      router.push(`/personnel/${id}`);
+    } catch (error: any) {
+      console.error("Failed to update personnel:", error);
+      alert(error.message || "Failed to save updates.");
+    } finally {
+      setSubmitting(false);
     }
+  };
+
+  if (loading) {
+    return (
+      <div className="flex min-h-[400px] items-center justify-center text-gray-500">
+        Loading edit form...
+      </div>
+    );
   }
 
   return (
-    <div className="max-w-3xl rounded-xl bg-white p-8 shadow-lg">
-
-      <h1 className="mb-6 text-3xl font-bold">
-        Edit Personnel
-      </h1>
+    <div className="mx-auto max-w-4xl space-y-6 p-6">
+      <div className="flex items-center justify-between">
+        <h1 className="text-3xl font-bold text-gray-900">Edit Personnel</h1>
+        <Link
+          href={`/personnel/${id}`}
+          className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-medium text-gray-700 shadow-sm transition hover:bg-gray-50"
+        >
+          Cancel
+        </Link>
+      </div>
 
       <form
         onSubmit={handleSubmit}
-        className="grid grid-cols-2 gap-5"
+        className="space-y-8 rounded-xl border border-gray-200 bg-white p-8 shadow-sm"
       >
-
+        {/* Section 1: Military Details */}
         <div>
-          <label>Army Number</label>
+          <h2 className="mb-4 text-xs font-bold uppercase tracking-wider text-blue-600">
+            Military & Unit Information
+          </h2>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-700">
+                Army Number *
+              </label>
+              <input
+                type="text"
+                name="army_no"
+                required
+                value={form.army_no}
+                onChange={handleChange}
+                className="mt-1 w-full rounded-md border border-gray-300 p-2 text-sm focus:border-blue-500 focus:outline-none"
+              />
+            </div>
 
-          <input
-            className="mt-1 w-full rounded border p-2"
-            value={form.army_no}
-            onChange={(e) =>
-  handleCompanyChange(e.target.value)
-}
-          />
+            <div>
+              <label className="block text-xs font-medium text-gray-700">
+                Rank
+              </label>
+              <select
+                name="rank_id"
+                value={form.rank_id}
+                onChange={handleChange}
+                className="mt-1 w-full rounded-md border border-gray-300 p-2 text-sm focus:border-blue-500 focus:outline-none"
+              >
+                <option value="">Select Rank</option>
+                {ranks.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.rank_name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-700">
+                Full Name *
+              </label>
+              <input
+                type="text"
+                name="full_name"
+                required
+                value={form.full_name}
+                onChange={handleChange}
+                className="mt-1 w-full rounded-md border border-gray-300 p-2 text-sm focus:border-blue-500 focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-700">
+                Corps
+              </label>
+              <select
+                name="corps_id"
+                value={form.corps_id}
+                onChange={handleChange}
+                className="mt-1 w-full rounded-md border border-gray-300 p-2 text-sm focus:border-blue-500 focus:outline-none"
+              >
+                <option value="">Select Corps</option>
+                {corpsList.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.corps_name || c.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-700">
+                Company
+              </label>
+              <select
+                name="company_id"
+                value={form.company_id}
+                onChange={handleChange}
+                className="mt-1 w-full rounded-md border border-gray-300 p-2 text-sm focus:border-blue-500 focus:outline-none"
+              >
+                <option value="">Select Company</option>
+                {companies.map((co) => (
+                  <option key={co.id} value={co.id}>
+                    {co.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-700">
+                Platoon
+              </label>
+              <select
+                name="platoon_id"
+                value={form.platoon_id}
+                onChange={handleChange}
+                className="mt-1 w-full rounded-md border border-gray-300 p-2 text-sm focus:border-blue-500 focus:outline-none"
+              >
+                <option value="">Select Platoon</option>
+                {filteredPlatoons.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.platoon_name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-700">
+                Appointment
+              </label>
+              <select
+                name="appointment_id"
+                value={form.appointment_id}
+                onChange={handleChange}
+                className="mt-1 w-full rounded-md border border-gray-300 p-2 text-sm focus:border-blue-500 focus:outline-none"
+              >
+                <option value="">Select Appointment</option>
+                {appointments.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.appointment_name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
         </div>
 
-        <div>
-          <label>Full Name</label>
+        <hr className="border-gray-100" />
 
-          <input
-            className="mt-1 w-full rounded border p-2"
-            value={form.full_name}
-            onChange={(e) =>
-              setForm({
-                ...form,
-                full_name: e.target.value,
-              })
-            }
-          />
+        {/* Section 2: Personal Details */}
+        <div>
+          <h2 className="mb-4 text-xs font-bold uppercase tracking-wider text-blue-600">
+            Personal Details & Contacts
+          </h2>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-700">
+                Father's Name
+              </label>
+              <input
+                type="text"
+                name="father_name"
+                value={form.father_name}
+                onChange={handleChange}
+                className="mt-1 w-full rounded-md border border-gray-300 p-2 text-sm focus:border-blue-500 focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-700">
+                Mother's Name
+              </label>
+              <input
+                type="text"
+                name="mother_name"
+                value={form.mother_name}
+                onChange={handleChange}
+                className="mt-1 w-full rounded-md border border-gray-300 p-2 text-sm focus:border-blue-500 focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-700">
+                Hometown
+              </label>
+              <input
+                type="text"
+                name="hometown"
+                value={form.hometown}
+                onChange={handleChange}
+                className="mt-1 w-full rounded-md border border-gray-300 p-2 text-sm focus:border-blue-500 focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-700">
+                Date of Birth
+              </label>
+              <input
+                type="date"
+                name="date_of_birth"
+                value={form.date_of_birth}
+                onChange={handleChange}
+                className="mt-1 w-full rounded-md border border-gray-300 p-2 text-sm focus:border-blue-500 focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-700">
+                Blood Group
+              </label>
+              <input
+                type="text"
+                name="blood_group"
+                placeholder="e.g. A+"
+                value={form.blood_group}
+                onChange={handleChange}
+                className="mt-1 w-full rounded-md border border-gray-300 p-2 text-sm focus:border-blue-500 focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-700">
+                Religion
+              </label>
+              <input
+                type="text"
+                name="religion"
+                value={form.religion}
+                onChange={handleChange}
+                className="mt-1 w-full rounded-md border border-gray-300 p-2 text-sm focus:border-blue-500 focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-700">
+                Personal Mobile
+              </label>
+              <input
+                type="text"
+                name="personal_mobile"
+                value={form.personal_mobile}
+                onChange={handleChange}
+                className="mt-1 w-full rounded-md border border-gray-300 p-2 text-sm focus:border-blue-500 focus:outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-700">
+                NOK Mobile
+              </label>
+              <input
+                type="text"
+                name="nok_mobile"
+                value={form.nok_mobile}
+                onChange={handleChange}
+                className="mt-1 w-full rounded-md border border-gray-300 p-2 text-sm focus:border-blue-500 focus:outline-none"
+              />
+            </div>
+          </div>
         </div>
 
+        <hr className="border-gray-100" />
+
+        {/* Section 3: Medical & Readiness */}
         <div>
-  <label className="block mb-1 font-medium">Rank</label>
+          <h2 className="mb-4 text-xs font-bold uppercase tracking-wider text-blue-600">
+            Medical & Service Status
+          </h2>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div>
+              <label className="block text-xs font-medium text-gray-700">
+                IPFT
+              </label>
+              <input
+                type="text"
+                name="ipft"
+                placeholder="e.g. Pass"
+                value={form.ipft}
+                onChange={handleChange}
+                className="mt-1 w-full rounded-md border border-gray-300 p-2 text-sm focus:border-blue-500 focus:outline-none"
+              />
+            </div>
 
-  <select
-    className="w-full rounded border p-2"
-    value={form.rank_id}
-    onChange={(e) =>
-      setForm({
-        ...form,
-        rank_id: e.target.value,
-      })
-    }
-  >
-    <option value="">Select Rank</option>
+            <div>
+              <label className="block text-xs font-medium text-gray-700">
+                RET Date
+              </label>
+              <input
+                type="date"
+                name="ret"
+                value={form.ret}
+                onChange={handleChange}
+                className="mt-1 w-full rounded-md border border-gray-300 p-2 text-sm focus:border-blue-500 focus:outline-none"
+              />
+            </div>
 
-    {ranks.map((rank) => (
-      <option key={rank.id} value={rank.id}>
-        {rank.rank_name}
-      </option>
-    ))}
-  </select>
-</div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700">
+                Mission Medical
+              </label>
+              <input
+                type="text"
+                name="mission_medical"
+                value={form.mission_medical}
+                onChange={handleChange}
+                className="mt-1 w-full rounded-md border border-gray-300 p-2 text-sm focus:border-blue-500 focus:outline-none"
+              />
+            </div>
 
-<div>
-  <label className="block mb-1 font-medium">
-    Company
-  </label>
+            <div>
+              <label className="block text-xs font-medium text-gray-700">
+                Medical Category
+              </label>
+              <input
+                type="text"
+                name="medical_category"
+                value={form.medical_category}
+                onChange={handleChange}
+                className="mt-1 w-full rounded-md border border-gray-300 p-2 text-sm focus:border-blue-500 focus:outline-none"
+              />
+            </div>
 
-  <select
-    className="w-full rounded border p-2"
-    value={form.company_id}
-    onChange={(e) =>
-      setForm({
-        ...form,
-        company_id: e.target.value,
-      })
-    }
-  >
-    <option value="">Select Company</option>
+            <div>
+              <label className="block text-xs font-medium text-gray-700">
+                Leave Status
+              </label>
+              <input
+                type="text"
+                name="leave_status"
+                value={form.leave_status}
+                onChange={handleChange}
+                className="mt-1 w-full rounded-md border border-gray-300 p-2 text-sm focus:border-blue-500 focus:outline-none"
+              />
+            </div>
 
-    {companies.map((company) => (
-      <option
-        key={company.id}
-        value={company.id}
-      >
-        {company.name}
-      </option>
-    ))}
-  </select>
-</div>
+            <div>
+              <label className="block text-xs font-medium text-gray-700">
+                Photo Upload
+              </label>
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => setPhotoFile(e.target.files?.[0] || null)}
+                className="mt-1 w-full text-xs text-gray-500 file:mr-2 file:rounded-md file:border-0 file:bg-gray-100 file:px-3 file:py-1.5 file:text-xs file:font-semibold hover:file:bg-gray-200"
+              />
+            </div>
+          </div>
+        </div>
 
-
-<div>
-  <label className="block mb-1 font-medium">
-    Platoon
-  </label>
-
-  <select
-    className="w-full rounded border p-2"
-    value={form.platoon_id}
-    onChange={(e) =>
-      setForm({
-        ...form,
-        platoon_id: e.target.value,
-      })
-    }
-  >
-    <option value="">Select Platoon</option>
-
-    {platoons.map((platoon) => (
-      <option
-        key={platoon.id}
-        value={platoon.id}
-      >
-        {platoon.platoon_name}
-      </option>
-    ))}
-  </select>
-</div>
-
-<div>
-  <label className="block mb-1 font-medium">
-    Appointment
-  </label>
-
-  <select
-    className="w-full rounded border p-2"
-    value={form.appointment_id}
-    onChange={(e) =>
-      setForm({
-        ...form,
-        appointment_id: e.target.value,
-      })
-    }
-  >
-    <option value="">Select Appointment</option>
-
-    {appointments.map((appointment) => (
-      <option
-        key={appointment.id}
-        value={appointment.id}
-      >
-        {appointment.appointment_name}
-      </option>
-    ))}
-  </select>
-</div>
-
-<div>
-  <label className="block mb-1 font-medium">
-    Corps
-  </label>
-
-  <select
-    className="w-full rounded border p-2"
-    value={form.corps_id}
-    onChange={(e) =>
-      setForm({
-        ...form,
-        corps_id: e.target.value,
-      })
-    }
-  >
-    <option value="">Select Corps</option>
-
-    {corps.map((item) => (
-      <option
-        key={item.id}
-        value={item.id}
-      >
-        {item.corps_name}
-      </option>
-    ))}
-  </select>
-</div>
-
-{/* Father Name */}
-<div>
-  <label>Father Name</label>
-
-  <input
-    className="mt-1 w-full rounded border p-2"
-    value={form.father_name}
-    onChange={(e) =>
-      setForm({
-        ...form,
-        father_name: e.target.value,
-      })
-    }
-  />
-</div>
-
-{/* Mother Name */}
-<div>
-  <label>Mother Name</label>
-
-  <input
-    className="mt-1 w-full rounded border p-2"
-    value={form.mother_name}
-    onChange={(e) =>
-      setForm({
-        ...form,
-        mother_name: e.target.value,
-      })
-    }
-  />
-</div>
-
-{/* Home District */}
-<div>
-  <label>Home District</label>
-
-  <input
-    className="mt-1 w-full rounded border p-2"
-    value={form.hometown}
-    onChange={(e) =>
-      setForm({
-        ...form,
-        hometown: e.target.value,
-      })
-    }
-  />
-</div>
-
-{/* Date of Birth */}
-<div>
-  <label>Date of Birth</label>
-
-  <input
-    type="date"
-    className="mt-1 w-full rounded border p-2"
-    value={form.date_of_birth || ""}
-    onChange={(e) =>
-      setForm({
-        ...form,
-        date_of_birth: e.target.value,
-      })
-    }
-  />
-</div>
-
-{/* Blood Group */}
-<div>
-  <label>Blood Group</label>
-
-  <input
-    className="mt-1 w-full rounded border p-2"
-    value={form.blood_group}
-    onChange={(e) =>
-      setForm({
-        ...form,
-        blood_group: e.target.value,
-      })
-    }
-  />
-</div>
-
-{/* Religion */}
-<div>
-  <label>Religion</label>
-
-  <input
-    className="mt-1 w-full rounded border p-2"
-    value={form.religion}
-    onChange={(e) =>
-      setForm({
-        ...form,
-        religion: e.target.value,
-      })
-    }
-  />
-</div>
-
-{/* Personal Mobile */}
-<div>
-  <label>Personal Mobile</label>
-
-  <input
-    className="mt-1 w-full rounded border p-2"
-    value={form.personal_mobile}
-    onChange={(e) =>
-      setForm({
-        ...form,
-        personal_mobile: e.target.value,
-      })
-    }
-  />
-</div>
-
-{/* NOK Mobile */}
-<div>
-  <label>NOK Mobile</label>
-
-  <input
-    className="mt-1 w-full rounded border p-2"
-    value={form.nok_mobile}
-    onChange={(e) =>
-      setForm({
-        ...form,
-        nok_mobile: e.target.value,
-      })
-    }
-  />
-</div>
-
-{/* IPFT */}
-<div>
-  <label>IPFT</label>
-
-  <input
-    className="mt-1 w-full rounded border p-2"
-    value={form.ipft}
-    onChange={(e) =>
-      setForm({
-        ...form,
-        ipft: e.target.value,
-      })
-    }
-  />
-</div>
-
-{/* RET */}
-<div>
-  <label>RET</label>
-
-  <input
-    type="date"
-    className="mt-1 w-full rounded border p-2"
-    value={form.ret || ""}
-    onChange={(e) =>
-      setForm({
-        ...form,
-        ret: e.target.value,
-      })
-    }
-  />
-</div>
-
-{/* Mission Medical */}
-<div>
-  <label>Mission Medical</label>
-
-  <input
-    className="mt-1 w-full rounded border p-2"
-    value={form.mission_medical}
-    onChange={(e) =>
-      setForm({
-        ...form,
-        mission_medical: e.target.value,
-      })
-    }
-  />
-</div>
-
-{/* Leave Status */}
-<div>
-  <label>Leave Status</label>
-
-  <input
-    className="mt-1 w-full rounded border p-2"
-    value={form.leave_status}
-    onChange={(e) =>
-      setForm({
-        ...form,
-        leave_status: e.target.value,
-      })
-    }
-  />
-</div>
-
-{/* Medical Category */}
-<div>
-  <label>Medical Category</label>
-
-  <input
-    className="mt-1 w-full rounded border p-2"
-    value={form.medical_category}
-    onChange={(e) =>
-      setForm({
-        ...form,
-        medical_category: e.target.value,
-      })
-    }
-  />
-</div>
-
-{/* Update Button */}
-<div className="col-span-2 mt-6 flex gap-4">
-  <button
-    type="submit"
-    className="rounded bg-emerald-700 px-6 py-3 text-white hover:bg-emerald-800"
-  >
-    Update Personnel
-  </button>
-
-  <button
-    type="button"
-    onClick={() => router.push("/personnel")}
-    className="rounded bg-gray-600 px-6 py-3 text-white hover:bg-gray-700"
-  >
-    Cancel
-  </button>
-</div>
-
-
-<div className="col-span-2">
-  <label className="block mb-2 font-medium">
-    Personnel Photo
-  </label>
-
-  {form.photo_url && (
-    <img
-  src={
-    photo
-      ? URL.createObjectURL(photo)
-      : form.photo_url
-  }
-      alt="Personnel"
-      className="mb-3 h-44 w-36 rounded border object-cover"
-    />
-  )}
-
-  <input
-    type="file"
-    accept="image/*"
-    onChange={(e) =>
-      setPhoto(e.target.files?.[0] || null)
-    }
-  />
-</div>
-
-
+        {/* Action Buttons */}
+        <div className="flex justify-end gap-3 pt-4">
+          <Link
+            href={`/personnel/${id}`}
+            className="rounded-md border border-gray-300 bg-white px-5 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+          >
+            Cancel
+          </Link>
+          <button
+            type="submit"
+            disabled={submitting}
+            className="rounded-md bg-blue-600 px-6 py-2 text-sm font-medium text-white shadow-sm hover:bg-blue-700 disabled:opacity-50"
+          >
+            {submitting ? "Saving..." : "Save Changes"}
+          </button>
+        </div>
       </form>
-
     </div>
   );
 }

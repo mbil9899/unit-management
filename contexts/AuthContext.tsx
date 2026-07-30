@@ -1,48 +1,77 @@
 "use client";
 
-import {
-  createContext,
-  useContext,
-  useEffect,
-  useState,
-} from "react";
+import React, { createContext, useContext, useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase";
+import { getCurrentUser } from "@/services/authService";
 
-import { getCurrentUserProfile } from "@/services/authService";
+interface AuthContextType {
+  user: any;
+  loading: boolean;
+  refreshUser: () => Promise<void>;
+  logout: () => Promise<void>;
+}
 
-const AuthContext = createContext<any>(null);
+const AuthContext = createContext<AuthContextType>({
+  user: null,
+  loading: true,
+  refreshUser: async () => {},
+  logout: async () => {},
+});
 
-export function AuthProvider({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    async function load() {
-      const profile = await getCurrentUserProfile();
-
-      setUser(profile);
-
+  const fetchUser = async () => {
+    try {
+      setLoading(true);
+      const currentUser = await getCurrentUser();
+      setUser(currentUser);
+    } catch (err) {
+      console.error("Failed to load user session:", err);
+      setUser(null);
+    } finally {
       setLoading(false);
     }
+  };
 
-    load();
+  useEffect(() => {
+    fetchUser();
+
+    // Listen for auth state changes (login, logout, token refresh)
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (session) {
+        fetchUser();
+      } else {
+        setUser(null);
+        setLoading(false);
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
+
+  const logout = async () => {
+    await supabase.auth.signOut();
+    setUser(null);
+  };
 
   return (
     <AuthContext.Provider
       value={{
         user,
         loading,
+        refreshUser: fetchUser,
+        logout,
       }}
     >
       {children}
     </AuthContext.Provider>
   );
-}
+};
 
-export function useAuth() {
-  return useContext(AuthContext);
-}
+export const useAuth = () => useContext(AuthContext);

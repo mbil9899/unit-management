@@ -1,77 +1,56 @@
 import { supabase } from "@/lib/supabase";
+import { getCurrentUser } from "./authService";
 
-export async function getTaskCategories() {
-  const { data, error } = await supabase
-    .from("task_categories")
-    .select("*")
-    .order("name");
-
-  if (error) throw error;
-
-  return data;
-}
-
-export async function getCompanies() {
-  const { data, error } = await supabase
-    .from("companies")
-    .select("*")
-    .order("name");
-
-  if (error) throw error;
-
-  return data;
-}
-
-export async function getPersonnelByCompany(companyId: number) {
-  const { data, error } = await supabase
-    .from("personnel")
-    .select("id, army_no, full_name")
-    .eq("company_id", companyId)
-    .order("army_no");
-
-  if (error) throw error;
-
-  return data;
-}
-
-export async function createTask(task: any) {
-  const { data, error } = await supabase
-    .from("tasks")
-    .insert([
-  {
-    ...task,
-    task_number: undefined,
-  },
-])
-    .select();
-
-  if (error) throw error;
-
-  return data;
-}
-
+// Fetch tasks with RBAC scoping applied
 export async function getTasks() {
-  const { data, error } = await supabase
+  const user = await getCurrentUser();
+
+  let query = supabase
     .from("tasks")
-    .select(`
-      id,
-      task_number,
-      title,
-      status,
-      due_date,
-
-      personnel:assigned_to(
-        full_name,
-        army_no
-      ),
-
-      companies(
-        short_name
-      )
-    `)
+    // Replace the select query inside getTasks() and getTaskById() with:
+.select(`
+  *,
+  companies(name),
+  task_categories(name),
+  assigned_personnel:personnel!tasks_assigned_to_fkey(
+    id, 
+    full_name, 
+    army_no,
+    ranks(rank_name),
+    companies(name),
+    platoons(platoon_name)
+  )
+`)
     .order("created_at", { ascending: false });
 
-  if (error) throw error;
+  const role = user?.role ? user.role.toUpperCase() : "";
+
+  // Enforce data visibility based on user role
+  switch (role) {
+    case "ADMIN":
+    case "CONTINGENT COMMANDER":
+    case "DEPUTY CONTINGENT COMMANDER":
+      break;
+
+    case "COMPANY COMMANDER":
+    case "COMPANY CLERK":
+      if (user?.company_id) {
+        query = query.eq("company_id", user.company_id);
+      }
+      break;
+
+    default:
+      if (user?.personnel_id) {
+        query = query.eq("assigned_to", user.personnel_id);
+      }
+  }
+
+  const { data, error } = await query;
+
+  if (error) {
+    console.error("Error fetching tasks:", error);
+    throw error;
+  }
 
   return data;
 }
@@ -83,68 +62,79 @@ export async function getTaskById(id: string) {
       *,
       task_categories(name),
       companies(name),
-      personnel:assigned_to(
+      personnel!tasks_assigned_to_fkey(
+        id,
+        full_name,
         army_no,
-        full_name
-      ),
-      user_profiles:assigned_by(
-        full_name
+        ranks(rank_name)
       )
     `)
     .eq("id", id)
     .single();
 
-  if (error) throw error;
-
+  if (error) {
+    console.error("Error fetching task by ID:", error);
+    throw error;
+  }
+  
   return data;
 }
-export async function updateTask(id: string, task: any) {
+
+export async function createTask(task: any) {
   const payload = {
-    ...task,
-
-    category_id: task.category_id
-      ? Number(task.category_id)
-      : null,
-
-    company_id: task.company_id
-      ? Number(task.company_id)
-      : null,
-
-    assigned_to:
-      task.assigned_to && task.assigned_to !== ""
-        ? task.assigned_to
-        : null,
-
-    assigned_by:
-      task.assigned_by && task.assigned_by !== ""
-        ? task.assigned_by
-        : null,
-
+    title: task.title,
+    description: task.description || null,
+    priority: task.priority || "Routine",
+    status: task.status || "Pending",
     start_date: task.start_date || null,
-
     due_date: task.due_date || null,
-
-    completion_date: task.completion_date || null,
-
-    evaluation: task.evaluation || null,
-
+    category_id: task.category_id ? Number(task.category_id) : null,
+    company_id: task.company_id ? Number(task.company_id) : null,
+    assigned_to: task.assigned_to || null,
+    assigned_by: task.assigned_by || null,
     remarks: task.remarks || null,
   };
 
-  console.log("Updating Task ID:", id);
-  console.log("Payload:", payload);
-
   const { data, error } = await supabase
     .from("tasks")
-    .update(payload)
+    .insert([payload])
+    .select();
+
+  if (error) throw error;
+  return data[0];
+}
+
+export async function updateTask(id: string, taskData: any) {
+  const { data, error } = await supabase
+    .from("tasks")
+    .update({ 
+      ...taskData, // This passes the new payload exactly as it comes from page.tsx
+      updated_at: new Date().toISOString() 
+    })
     .eq("id", id)
     .select()
     .single();
 
-  if (error) {
-    console.error(error);
-    throw error;
-  }
-
+  if (error) throw error;
   return data;
+}
+export async function updateTaskStatus(id: string, status: string) {
+  const { data, error } = await supabase
+    .from("tasks")
+    .update({ status, updated_at: new Date().toISOString() })
+    .eq("id", id)
+    .select()
+    .single();
+
+  if (error) throw error;
+  return data;
+}
+
+export async function deleteTask(id: string) {
+  const { error } = await supabase
+    .from("tasks")
+    .delete()
+    .eq("id", id);
+
+  if (error) throw error;
 }
