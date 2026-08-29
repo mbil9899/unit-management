@@ -33,21 +33,40 @@ export default function TaskDetailsPage() {
 
   const contentRef = useRef<HTMLDivElement>(null);
 
-  // RBAC Permission Logic
+  // ==========================================
+  // 1. RBAC PERMISSION LOGIC
+  // ==========================================
   const role = user?.role ? user.role.toUpperCase().trim() : "";
+  const isCompanyCommander = role === "COMPANY COMMANDER";
+  const isCompanyClerk = role === "COMPANY CLERK";
+  
+  // Safely check if the loaded task belongs to the user's company
+  const isTaskInUserCompany = task?.company_id === user?.company_id;
+
+  // Edit Permissions: Removed COMPANY CLERK
   const canEditTask = [
     "ADMIN",
     "CONTINGENT COMMANDER",
     "DEPUTY CONTINGENT COMMANDER",
     "COMPANY COMMANDER",
     "PLATOON COMMANDER",
-    "COMPANY CLERK",
   ].includes(role);
 
-  const canDeleteTask = ["ADMIN", "CONTINGENT COMMANDER", "DEPUTY CONTINGENT COMMANDER"].includes(role);
+  // Delete Permissions: Global Roles OR (Company Commander + Task is in their Company)
+  const canDeleteTask = 
+    ["ADMIN", "CONTINGENT COMMANDER", "DEPUTY CONTINGENT COMMANDER"].includes(role) || 
+    (isCompanyCommander && isTaskInUserCompany);
+
+  // ==========================================
 
   useEffect(() => {
     setMounted(true);
+
+    // Fail-safe: Redirect Company Clerks immediately if they access via direct URL
+    if (isCompanyClerk) {
+      router.replace("/dashboard");
+      return;
+    }
     
     async function loadTask() {
       try {
@@ -61,8 +80,8 @@ export default function TaskDetailsPage() {
       }
     }
 
-    if (id) loadTask();
-  }, [id]);
+    if (id && !isCompanyClerk) loadTask();
+  }, [id, isCompanyClerk, router]);
 
   const handleDelete = async () => {
     if (!canDeleteTask) return;
@@ -79,9 +98,6 @@ export default function TaskDetailsPage() {
     }
   };
 
-  // -----------------------------------------------------------------
-  // Robust PDF Download Function (using html-to-image)
-  // -----------------------------------------------------------------
   // -----------------------------------------------------------------
   // Robust PDF Download Function (Centered & Aligned)
   // -----------------------------------------------------------------
@@ -150,6 +166,9 @@ export default function TaskDetailsPage() {
       setIsDownloading(false);
     }
   };
+
+  // Block rendering entirely for unauthorized clerks
+  if (isCompanyClerk) return null;
 
   if (!mounted || loading) {
     return (
@@ -320,7 +339,7 @@ export default function TaskDetailsPage() {
           </div>
         </div>
 
-        {/* Delete Action (Admin Only) */}
+        {/* Delete Action (Admin & Allowed Commanders Only) */}
         {canDeleteTask && (
           <div className="mt-8 border-t border-gray-100 pt-6 text-right" data-pdf-ignore="true">
             <button
