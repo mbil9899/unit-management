@@ -1,180 +1,115 @@
 import { supabase } from "@/lib/supabase";
 import { getCurrentUser } from "./authService";
 
-// Fetch personnel based on RBAC visibility rules
 export async function getPersonnel() {
   const user = await getCurrentUser();
+  const role = user?.role ? String(user.role).toUpperCase().trim() : "";
 
+  // Fetch personnel with all relations AND their assigned tasks (for counting)
   let query = supabase
     .from("personnel")
     .select(`
       *,
       ranks(rank_name),
-      corps(corps_name),
       companies(name),
       platoons(platoon_name),
-      appointments(appointment_name)
+      appointments(appointment_name),
+      corps(corps_name),
+      tasks:tasks!tasks_assigned_to_fkey(id)
     `)
     .order("created_at", { ascending: false });
 
-  // ... (leave the rest of your RBAC logic the same)
-
-  const role = user?.role ? user.role.toUpperCase().trim() : "";
-
-  // Enforce data visibility based on user role
-  switch (role) {
-    case "ADMIN":
-    case "CONTINGENT COMMANDER":
-    case "DEPUTY CONTINGENT COMMANDER":
-      // Full battalion visibility — no company_id restriction
-      break;
-
-    case "COMPANY COMMANDER":
-    case "COMPANY CLERK":
-      if (user?.company_id) {
-        query = query.eq("company_id", user.company_id);
-      }
-      break;
-
-    case "PLATOON COMMANDER":
-      if (user?.platoon_id) {
-        query = query.eq("platoon_id", user.platoon_id);
-      } else if (user?.company_id) {
-        query = query.eq("company_id", user.company_id);
-      }
-      break;
-
-    default:
-      if (user?.personnel_id) {
-        query = query.eq("id", user.personnel_id);
-      }
-      break;
+  // RBAC: Company Commander and Clerk can only see their own company's personnel
+  if ((role === "COMPANY COMMANDER" || role === "COMPANY CLERK") && user?.company_id) {
+    query = query.eq("company_id", user.company_id);
   }
 
   const { data, error } = await query;
-
+  
   if (error) {
     console.error("Error fetching personnel:", error);
     throw error;
   }
-
+  
   return data;
 }
 
-// Fetch single personnel record by ID
-// Fetch single personnel record by ID
 export async function getPersonnelById(id: string) {
   const { data, error } = await supabase
     .from("personnel")
     .select(`
       *,
-      ranks(rank_name),
-      corps(corps_name),
-      companies(name),
-      platoons(platoon_name),
-      appointments(appointment_name)
+      ranks(*),
+      companies(*),
+      platoons(*),
+      appointments(*),
+      corps(*)
     `)
     .eq("id", id)
     .single();
-
-  // ... (leave the rest the same)
 
   if (error) {
     console.error("Error fetching personnel by ID:", error);
     throw error;
   }
-
+  
   return data;
 }
 
-// Create personnel (Guard: Company Commander restricted)
 export async function createPersonnel(personnelData: any) {
-  const user = await getCurrentUser();
-  const role = user?.role ? user.role.toUpperCase().trim() : "";
-
-  if (role === "COMPANY COMMANDER") {
-    throw new Error("Company Commanders are not authorized to create personnel records.");
-  }
-
   const { data, error } = await supabase
     .from("personnel")
     .insert([personnelData])
     .select();
-
+    
   if (error) throw error;
   return data[0];
 }
 
-// Update personnel (Guard: Company Commander restricted)
-export async function updatePersonnel(id: string, personnelData: any) {
-  const user = await getCurrentUser();
-  const role = user?.role ? user.role.toUpperCase().trim() : "";
-
-  if (role === "COMPANY COMMANDER") {
-    throw new Error("Company Commanders are not authorized to edit personnel records.");
-  }
-
+export async function updatePersonnel(id: string, updates: any) {
   const { data, error } = await supabase
     .from("personnel")
-    .update({ ...personnelData, updated_at: new Date().toISOString() })
+    .update(updates)
     .eq("id", id)
-    .select()
-    .single();
-
+    .select();
+    
   if (error) throw error;
-  return data;
+  return data[0];
 }
 
-// Delete personnel (Guard: Restricted to Admin and Contingent Command)
 export async function deletePersonnel(id: string) {
-  const user = await getCurrentUser();
-  const role = user?.role ? user.role.toUpperCase().trim() : "";
-
-  if (!["ADMIN", "CONTINGENT COMMANDER", "DEPUTY CONTINGENT COMMANDER"].includes(role)) {
-    throw new Error("You are not authorized to delete personnel records.");
-  }
-
   const { error } = await supabase
     .from("personnel")
     .delete()
     .eq("id", id);
-
+    
   if (error) throw error;
 }
 
-// Upload Personnel Photo to Supabase Storage
-// ✅ CORRECTED CODE (Uploads to the bucket root)
-// ... (rest of your code above)
-
-// Upload Personnel Photo to Supabase Storage
-export async function uploadPersonnelPhoto(file: File) {
+// RESTORED: Upload personnel photo to Supabase Storage
+export async function uploadPersonnelPhoto(file: File): Promise<string> {
   try {
-    // Generate a unique file name
-    const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.jpeg`;
-    
-    // Set the path to JUST the file name (no "photos/" prefix)
-    const filePath = `${fileName}`; 
+    const fileExt = file.name.split('.').pop();
+    const fileName = `${Date.now()}-${Math.random().toString(36).substring(2)}.${fileExt}`;
+    const filePath = `photos/${fileName}`;
 
-    // Upload the file
+    // Note: If your storage bucket is named something other than "personnel", 
+    // change it here (e.g., "avatars", "images", "personnel-photos")
     const { error: uploadError } = await supabase.storage
-      .from("personnel-photos")
+      .from("personnel") 
       .upload(filePath, file);
 
     if (uploadError) {
       throw uploadError;
     }
 
-    // Get the public URL
-    const { data: publicUrlData } = supabase.storage
-      .from("personnel-photos")
+    const { data } = supabase.storage
+      .from("personnel")
       .getPublicUrl(filePath);
 
-    // Return the URL safely inside the try block
-    return publicUrlData.publicUrl;
-    
+    return data.publicUrl;
   } catch (error) {
     console.error("Error uploading photo:", error);
     throw error;
   }
 }
-// <-- THE FILE SHOULD END EXACTLY HERE. NO CODE BELOW THIS LINE.

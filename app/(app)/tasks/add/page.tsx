@@ -10,7 +10,9 @@ import { createTask } from "@/services/taskService";
 
 export default function AddTaskPage() {
   const router = useRouter();
-  const { user } = useAuth();
+  
+  // FIX 1: Extract authLoading to prevent race conditions
+  const { user, loading: authLoading } = useAuth();
 
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
@@ -40,6 +42,28 @@ export default function AddTaskPage() {
   const todayDate = new Date().toISOString().split("T")[0];
 
   useEffect(() => {
+    // FIX 2: Strictly wait for Auth to load
+    if (authLoading) return;
+    if (!user) return;
+
+    // FIX 3: Check RBAC with fallback to "CONTINGENT COMMANDER" and allow "USER"
+    const activeRole = user.role ? String(user.role).toUpperCase().trim() : "CONTINGENT COMMANDER";
+    const allowedRoles = [
+      "ADMIN", 
+      "USER", 
+      "CONTINGENT COMMANDER", 
+      "CONTIGENT COMMANDER", // Typo fallback
+      "DEPUTY CONTINGENT COMMANDER", 
+      "COMPANY COMMANDER"
+    ];
+    
+    // Kick out unauthorized users
+    if (!allowedRoles.includes(activeRole)) {
+      console.warn(`Unauthorized role detected: ${activeRole}. Redirecting to dashboard...`);
+      router.replace("/dashboard");
+      return;
+    }
+
     async function loadFormData() {
       try {
         setLoading(true);
@@ -57,13 +81,13 @@ export default function AddTaskPage() {
         setPersonnelList(personnelData || []);
       } catch (error) {
         console.error("Error loading task form dependencies:", error);
-      } finally { // 👈 Fixed here
+      } finally { 
         setLoading(false);
       }
     }
 
     loadFormData();
-  }, []);
+  }, [authLoading, user, router]);
 
   // Handle Assignee Selection & Auto-Detect Company & Platoon
   const handleAssigneeChange = (personId: string) => {
@@ -91,16 +115,22 @@ export default function AddTaskPage() {
     try {
       setSubmitting(true);
 
+      // FIX 4: The database doesn't have a 'remarks' column. 
+      // To prevent a DB crash but keep the UI intact, we append remarks to the description.
+      const finalDescription = form.remarks 
+        ? `${form.description}\n\nRemarks: ${form.remarks}`.trim() 
+        : form.description;
+
       const payload = {
         title: form.title,
-        description: form.description,
+        description: finalDescription,
         category_id: form.category_id ? Number(form.category_id) : null,
         assigned_to: form.assigned_to || null,
         company_id: selectedPerson?.company_id || user?.company_id || null,
         priority: form.priority,
         status: "Pending", // Fixed status on creation
         due_date: form.due_date || null,
-        remarks: form.remarks || null,
+        // Removed 'remarks' from payload to prevent Supabase Schema Cache error
       };
 
       await createTask(payload);
@@ -120,10 +150,19 @@ export default function AddTaskPage() {
     }
   };
 
+  // FIX 5: Prevent rendering the form before auth is resolved
+  if (authLoading || !user) {
+    return (
+      <div className="flex min-h-[400px] items-center justify-center text-gray-500">
+        <div className="text-sm font-medium animate-pulse">Verifying permissions...</div>
+      </div>
+    );
+  }
+
   if (loading) {
     return (
       <div className="flex min-h-[400px] items-center justify-center text-gray-500">
-        Loading task creation form...
+        <div className="text-sm font-medium animate-pulse">Loading task creation form...</div>
       </div>
     );
   }

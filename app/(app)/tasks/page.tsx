@@ -2,28 +2,46 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useAuth } from "@/contexts/AuthContext";
 import { getTasks, deleteTask } from "@/services/taskService";
 
 export default function TasksPage() {
+  const router = useRouter();
+  const { user, loading: authLoading } = useAuth();
+  
   const [tasks, setTasks] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    loadTaskList();
-  }, []);
+    // FIX: Wait for user data to exist before running RBAC logic
+    if (authLoading) return;
+    if (!user) return;
 
-  async function loadTaskList() {
-    try {
-      setLoading(true);
-      const data = await getTasks();
-      setTasks(data || []);
-    } catch (error) {
-      console.error("Failed to load tasks:", error);
-    } finally {
-      setLoading(false);
+    const currentRole = String(user.role).toUpperCase().trim();
+
+    // RBAC Check: Bounce ONLY Clerks
+    if (currentRole === "COMPANY CLERK") {
+      router.replace("/dashboard");
+      return; 
     }
-  }
+
+    // Load Tasks for everyone else
+    async function loadTaskList() {
+      try {
+        setLoading(true);
+        const data = await getTasks();
+        setTasks(data || []);
+      } catch (error) {
+        console.error("Failed to load tasks:", error);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    loadTaskList();
+  }, [authLoading, user, router]);
 
   const handleDelete = async (id: string, title: string) => {
     if (confirm(`Are you sure you want to delete task "${title}"?`)) {
@@ -36,6 +54,10 @@ export default function TasksPage() {
       }
     }
   };
+
+  // Safe block rendering
+  if (authLoading || !user) return null;
+  if (String(user.role).toUpperCase().trim() === "COMPANY CLERK") return null;
 
   // Multi-field search
   const filteredTasks = tasks.filter((task) => {
