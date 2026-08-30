@@ -9,17 +9,17 @@ export default function Sidebar() {
   const pathname = usePathname();
   const router = useRouter();
   
-  // FIX: Removed signOut from here to clear the TypeScript error
+  // Notice: We only extract 'user' here, which fixes the TypeScript error!
   const { user } = useAuth();
 
   const role = user?.role ? String(user.role).toUpperCase().trim() : "";
   const isCompanyClerk = role === "COMPANY CLERK";
 
-  // Handle Logout directly via Supabase
+  // Handle Logout safely using Supabase directly
   const handleLogout = async () => {
     try {
       await supabase.auth.signOut();
-      router.push("/login"); // Adjust this if your login page route is different
+      router.push("/login"); 
     } catch (error) {
       console.error("Error logging out:", error);
     }
