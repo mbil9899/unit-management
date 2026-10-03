@@ -39,3 +39,8 @@ export const canManageUsers = (role?: string | null) => {
   if (r === "ADMIN") return true;
   return r === "CONTINGENT_COMMANDER";
 };
+
+// Add the 'export' keyword before the function
+export const canManageSettings = (userRole: string) => {
+  return userRole === 'ADMIN' || userRole === 'CONTINGENT_COMMANDER';
+};
