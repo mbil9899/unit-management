@@ -1,25 +1,20 @@
 import Sidebar from "@/components/layout/Sidebar";
 
-export default function AppLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function AppLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body className="flex h-screen bg-[#f8fafc] overflow-hidden">
-        
-        {/* This imports your newly updated Sidebar component! */}
-        <Sidebar />
-
-        {/* Main Content Area (Offset by the 64-width sidebar) */}
-        <div className="flex-1 flex flex-col ml-64">
-          <main className="flex-1 overflow-y-auto">
-            {children}
-          </main>
-        </div>
-
-      </body>
-    </html>
+    <div className="flex h-screen bg-[#f8fafc] overflow-hidden">
+      
+      {/* Your Fixed Sidebar */}
+      <Sidebar />
+      
+      {/* 
+        Main Content Wrapper 
+        Added 'ml-64' to push this content to the right of the sidebar 
+      */}
+      <div className="flex-1 overflow-y-auto ml-64">
+        {children}
+      </div>
+      
+    </div>
   );
 }

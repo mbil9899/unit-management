@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/contexts/AuthContext";
 import { supabase } from "@/lib/supabase";
+import UnitCalendar from '@/components/UnitCalendar'
 
 export default function DashboardPage() {
   const { user, loading: authLoading } = useAuth();
@@ -243,29 +244,23 @@ export default function DashboardPage() {
                       </div>
                     </div>
 
-                    {/* Status, Priority, & Time (Updated Layout) */}
+                    {/* Status, Priority, & Time */}
                     <div className="flex items-center gap-8">
-                      {/* 1. New dynamic Priority Badge */}
                       <div className={`flex items-center justify-center px-3 py-1 rounded-md border text-xs font-bold capitalize ${getPriorityBadgeStyle(task.priority)}`}>
                         {task.priority || "Routine"}
                       </div>
-
-                      {/* 2. Existing StatusDot div */}
                       <div className="hidden md:flex items-center gap-2 w-28">
                         <StatusDot status={task.status} />
                         <span className="text-xs font-semibold text-gray-600 capitalize">
                           {task.status || "Pending"}
                         </span>
                       </div>
-
-                      {/* 3. Updated Due Date display with prefix */}
                       <div className="text-xs font-medium text-gray-500 w-32 text-right flex items-baseline justify-end gap-1.5">
                         <span className="text-gray-400 font-normal">Due:</span>
                         <span className="font-semibold text-gray-600">
                           {task.due_date ? new Date(task.due_date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }) : "No Due"}
                         </span>
                       </div>
-
                       <div className="text-gray-300 group-hover:text-gray-600 transition">
                         •••
                       </div>
@@ -275,6 +270,13 @@ export default function DashboardPage() {
               )}
             </div>
           </div>
+
+          {/* Unit Operations Calendar (MOVED OUTSIDE OF TASK LIST) */}
+          <div className="bg-white rounded-[2rem] p-8 shadow-[0_2px_20px_rgb(0,0,0,0.02)] border border-gray-50">
+            <h2 className="text-xl font-bold text-gray-900 mb-6">Unit Operations Calendar</h2>
+            <UnitCalendar />
+          </div>
+
         </div>
 
         {/* ========================================= */}
@@ -285,7 +287,6 @@ export default function DashboardPage() {
           {/* Profile Card */}
           <div className="bg-[#F2F1F6] rounded-[2.5rem] p-8 flex flex-col items-center text-center">
             
-            {/* UPDATED: Increased from w-24 h-24 to w-32 h-32 for a noticeably larger logo */}
             <div className="w-32 h-32 rounded-full bg-white border-4 border-white shadow-sm overflow-hidden mb-4 relative flex items-center justify-center">
               <img 
                 src={user?.personnel?.photo_url || "/logo.png"} 
@@ -353,9 +354,6 @@ function StatusDot({ status }: { status?: string }) {
   return <span className="w-2 h-2 rounded-full bg-gray-300"></span>; // Pending
 }
 
-/**
- * Returns dynamic styling for task priority badges.
- */
 function getPriorityBadgeStyle(priority: string) {
   const p = priority?.toLowerCase() || "";
   switch (p) {

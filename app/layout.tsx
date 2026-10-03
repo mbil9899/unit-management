@@ -19,11 +19,12 @@ export const metadata: Metadata = {
   description: "BANRDB-9 Task Management System",
 };
 
-// Make sure your AuthProvider (or similar wrappers) are still inside the body!
-export default function RootLayout({ children }) {
+
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning> 
-      <body>
+    <html lang="en" suppressHydrationWarning>
+      {/* Add it to the body tag too! */}
+      <body suppressHydrationWarning>
         <AuthProvider>
           {children}
         </AuthProvider>

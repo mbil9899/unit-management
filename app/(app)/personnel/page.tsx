@@ -3,6 +3,9 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { getPersonnel } from "@/services/personnelService";
+// 1. IMPORT AUTH AND PERMISSIONS
+import { useAuth } from "@/contexts/AuthContext";
+import { canCreatePersonnel } from "@/services/permissionService";
 
 // Helper function to determine badge colors based on task count
 function getTaskBadgeStyle(count: number) {
@@ -23,6 +26,9 @@ function getTaskBadgeStyle(count: number) {
 }
 
 export default function PersonnelPage() {
+  // 2. GET CURRENT USER
+  const { user } = useAuth();
+  
   const [personnel, setPersonnel] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [loading, setLoading] = useState(true);
@@ -61,6 +67,16 @@ export default function PersonnelPage() {
           <h1 className="text-3xl font-bold text-gray-900">Personnel Roster</h1>
           <p className="text-sm text-gray-500">View and manage unit personnel records.</p>
         </div>
+        
+        {/* Only render this if the role is strictly ADMIN */}
+{user?.role === 'ADMIN' && (
+          <Link 
+            href="/personnel/add"
+            className="bg-blue-600 text-white px-4 py-2 rounded-lg font-bold text-sm hover:bg-blue-700 transition shadow-sm"
+          >
+            + Add Personnel
+          </Link>
+        )}
       </div>
 
       {/* Search Bar */}

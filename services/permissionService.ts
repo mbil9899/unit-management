@@ -1,74 +1,41 @@
-export function isAdmin(user: any) {
-  return user?.role === "ADMIN";
-}
+export const normalizeRole = (role?: string | null): string => {
+  if (!role) return "";
+  return String(role).toUpperCase().replace(/\s+/g, "_").trim();
+};
 
-export function isContingentCommander(user: any) {
-  return user?.role === "CONTINGENT COMMANDER";
-}
+export const isAdmin = (role?: string | null) => normalizeRole(role) === "ADMIN";
+export const isContingentCommander = (role?: string | null) => normalizeRole(role) === "CONTINGENT_COMMANDER";
 
-export function isDeputyContingentCommander(user: any) {
-  return user?.role === "DEPUTY CONTINGENT COMMANDER";
-}
+// --- PERSONNEL ---
+export const canViewPersonnel = (role?: string | null) => true; // Everyone can view
 
-export function isCompanyCommander(user: any) {
-  return user?.role === "COMPANY COMMANDER";
-}
+export const canCreatePersonnel = (role?: string | null) => {
+  const r = normalizeRole(role);
+  if (r === "ADMIN") return true; 
+  return ["ADJUTANT", "PA_CC"].includes(r); // Removed COMPANY_CLERK
+};
 
-export function isPlatoonCommander(user: any) {
-  return user?.role === "PLATOON COMMANDER";
-}
+export const canEditPersonnel = (role?: string | null) => canCreatePersonnel(role);
+export const canDeletePersonnel = (role?: string | null) => {
+  const r = normalizeRole(role);
+  if (r === "ADMIN") return true; 
+  return ["ADJUTANT", "CONTINGENT_COMMANDER"].includes(r);
+};
 
-export function isCompanyClerk(user: any) {
-  return user?.role === "COMPANY CLERK";
-}
+// --- TASKS ---
+export const canViewTasks = (role?: string | null) => {
+  const r = normalizeRole(role);
+  if (r === "ADMIN") return true;
+  return r === "CONTINGENT_COMMANDER"; 
+};
 
-export function canManageUsers(user: any) {
-  return isAdmin(user);
-}
+export const canAssignTasks = (role?: string | null) => canViewTasks(role);
+export const canEditTask = (role?: string | null) => canViewTasks(role);
+export const canDeleteTask = (role?: string | null) => canViewTasks(role);
 
-export function canManageSettings(user: any) {
-  return isAdmin(user);
-}
-
-export function canManageLookups(user: any) {
-  return isAdmin(user);
-}
-
-export function canAssignTasks(user: any) {
-  return (
-    isAdmin(user) ||
-    isContingentCommander(user) ||
-    isDeputyContingentCommander(user) ||
-    isCompanyCommander(user) ||
-    isPlatoonCommander(user)
-  );
-}
-
-export function canViewTasks(user: any) {
-  return (
-    isAdmin(user) ||
-    isContingentCommander(user) ||
-    isDeputyContingentCommander(user) ||
-    isCompanyCommander(user) ||
-    isPlatoonCommander(user)
-  );
-}
-
-export function canEditPersonnel(user: any) {
-  return (
-    isAdmin(user) ||
-    isContingentCommander(user) ||
-    isDeputyContingentCommander(user) ||
-    isCompanyCommander(user) ||
-    isPlatoonCommander(user) ||
-    isCompanyClerk(user)
-  );
-}
-
-export function canDeletePersonnel(user: any) {
-  return (
-    isAdmin(user) ||
-    isContingentCommander(user) ||
-    isDeputyContingentCommander(user)
-  );
-}
+// --- SYSTEM ---
+export const canManageUsers = (role?: string | null) => {
+  const r = normalizeRole(role);
+  if (r === "ADMIN") return true;
+  return r === "CONTINGENT_COMMANDER";
+};
