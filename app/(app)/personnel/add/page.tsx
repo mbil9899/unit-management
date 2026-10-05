@@ -101,7 +101,8 @@ async function handleSubmit(e: React.FormEvent) {
     });
 
     if (photo) {
-      await uploadPersonnelPhoto(photo, person.id);
+      //await uploadPersonnelPhoto(photo, person.id);
+      await uploadPersonnelPhoto(photo);
     }
 
     alert("Personnel added successfully.");
