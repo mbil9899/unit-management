@@ -145,7 +145,8 @@ export default function EditPersonnelPage() {
       await updatePersonnel(id as string, form);
 
       if (photoFile) {
-        await uploadPersonnelPhoto(photoFile, id as string);
+        //await uploadPersonnelPhoto(photoFile, id as string);
+        await uploadPersonnelPhoto(photoFile);
       }
 
       router.push(`/personnel/${id}`);
