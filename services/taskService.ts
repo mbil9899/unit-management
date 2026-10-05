@@ -138,13 +138,12 @@ export async function deleteTask(id: string) {
   }
 
   // Enforce Company Commander can ONLY delete their own company's tasks
-  if (role === "COMPANY COMMANDER") {
+if (role === "COMPANY COMMANDER") {
     const task = await getTaskById(id);
-    if (task.company_id !== user.company_id) {
+    if (task.company_id !== user?.company_id) {
       throw new Error("Unauthorized: You can only delete tasks belonging to your own company.");
     }
   }
-
   const { error } = await supabase.from("tasks").delete().eq("id", id);
   if (error) throw error;
 }
